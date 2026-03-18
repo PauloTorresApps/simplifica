@@ -50,7 +50,7 @@ O Simplifica consome publicações do Diário Oficial do Tocantins via API, util
 - **Framework**: React 18
 - **Build**: Vite
 - **Estilização**: Tailwind CSS
-- **Estado**: Zustand + React Query
+- **Estado**: React Query + Context API
 - **Roteamento**: React Router v6
 - **Testes**: Vitest + React Testing Library
 
@@ -121,7 +121,7 @@ Edite o arquivo `backend/.env` e configure:
 DATABASE_URL=postgresql://simplifica:simplifica123@postgres:5432/simplifica
 
 # JWT
-JWT_SECRET=your-super-secret-jwt-key-min-32-chars
+JWT_SECRET=replace-with-a-random-secret-with-at-least-64-characters-and-high-entropy
 JWT_EXPIRES_IN=7d
 
 # OpenRouter (obtenha em https://openrouter.ai)
@@ -166,7 +166,10 @@ docker compose exec backend npx prisma migrate dev
 |--------|----------|-----------|------|
 | POST | `/api/auth/register` | Registrar novo usuário | ❌ |
 | POST | `/api/auth/login` | Login | ❌ |
+| POST | `/api/auth/logout` | Encerrar sessão | ❌ |
 | GET | `/api/auth/me` | Dados do usuário logado | ✅ |
+
+Observação: autenticação é baseada em cookie `httpOnly` (`auth_token`) com `SameSite=Lax`.
 
 ### Publicações
 
