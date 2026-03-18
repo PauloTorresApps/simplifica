@@ -5,7 +5,13 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
 
   // JWT
-  JWT_SECRET: z.string().min(32),
+  JWT_SECRET: z
+    .string()
+    .min(64, 'JWT_SECRET deve ter pelo menos 64 caracteres')
+    .refine(
+      (secret) => !secret.toLowerCase().includes('change-in-production'),
+      'JWT_SECRET inseguro: use uma chave aleatória forte'
+    ),
   JWT_EXPIRES_IN: z.string().default('7d'),
 
   // OpenRouter

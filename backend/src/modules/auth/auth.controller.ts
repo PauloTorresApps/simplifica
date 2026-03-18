@@ -2,6 +2,17 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
 import { registerSchema, loginSchema } from './auth.schema';
 import { ApiResponse } from '../../shared/types';
+import { env } from '../../config/env';
+
+const AUTH_COOKIE_NAME = 'auth_token';
+
+const AUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: 7 * 24 * 60 * 60,
+};
 
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -10,9 +21,13 @@ export class AuthController {
     const data = registerSchema.parse(request.body);
     const result = await this.authService.register(data);
 
-    const response: ApiResponse<typeof result> = {
+    reply.setCookie(AUTH_COOKIE_NAME, result.token, AUTH_COOKIE_OPTIONS);
+
+    const response: ApiResponse<{ user: typeof result.user }> = {
       success: true,
-      data: result,
+      data: {
+        user: result.user,
+      },
     };
 
     return reply.status(201).send(response);
@@ -22,9 +37,30 @@ export class AuthController {
     const data = loginSchema.parse(request.body);
     const result = await this.authService.login(data);
 
-    const response: ApiResponse<typeof result> = {
+    reply.setCookie(AUTH_COOKIE_NAME, result.token, AUTH_COOKIE_OPTIONS);
+
+    const response: ApiResponse<{ user: typeof result.user }> = {
       success: true,
-      data: result,
+      data: {
+        user: result.user,
+      },
+    };
+
+    return reply.status(200).send(response);
+  }
+
+  async logout(_request: FastifyRequest, reply: FastifyReply) {
+    reply.clearCookie(AUTH_COOKIE_NAME, {
+      path: '/',
+      sameSite: 'lax',
+      secure: env.NODE_ENV === 'production',
+    });
+
+    const response: ApiResponse<{ loggedOut: boolean }> = {
+      success: true,
+      data: {
+        loggedOut: true,
+      },
     };
 
     return reply.status(200).send(response);

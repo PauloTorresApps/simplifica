@@ -8,7 +8,7 @@ interface AuthContextData {
   isLoading: boolean;
   login: (data: LoginInput) => Promise<void>;
   register: (data: RegisterInput) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -26,38 +26,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   async function loadUser() {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (token && storedUser) {
-      try {
-        const userData = await authService.getMe();
-        setUser(userData);
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+    try {
+      const userData = await authService.getMe();
+      setUser(userData);
+    } catch {
+      setUser(null);
     }
+
     setIsLoading(false);
   }
 
   async function login(data: LoginInput) {
     const response = await authService.login(data);
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
     setUser(response.user);
   }
 
   async function register(data: RegisterInput) {
     const response = await authService.register(data);
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
     setUser(response.user);
   }
 
-  function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  async function logout() {
+    try {
+      await authService.logout();
+    } catch {
+      // Client state must be cleared even if API logout fails.
+    }
     setUser(null);
   }
 

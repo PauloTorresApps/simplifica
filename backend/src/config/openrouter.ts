@@ -4,12 +4,12 @@ export const openRouterConfig = {
   apiKey: env.OPENROUTER_API_KEY,
   model: env.OPENROUTER_MODEL,
   baseUrl: 'https://openrouter.ai/api/v1',
-  headers: {
+  buildHeaders: () => ({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
     'HTTP-Referer': 'https://simplifica.app',
     'X-Title': 'Simplifica - Tradutor de Juridiquês',
-  },
+  }),
 };
 
 export const SUMMARY_SYSTEM_PROMPT = `Você é um especialista em simplificar textos jurídicos brasileiros.

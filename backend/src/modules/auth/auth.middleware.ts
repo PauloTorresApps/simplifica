@@ -9,7 +9,7 @@ declare module 'fastify' {
 
 export async function authenticate(request: FastifyRequest, _reply: FastifyReply) {
   try {
-    await request.jwtVerify();
+    await request.jwtVerify({ onlyCookie: true });
   } catch (error) {
     throw new UnauthorizedError('Token inválido ou expirado');
   }

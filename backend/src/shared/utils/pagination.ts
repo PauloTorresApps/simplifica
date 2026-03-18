@@ -4,8 +4,13 @@ export function getPaginationParams(
   page?: number | string,
   limit?: number | string
 ): PaginationParams {
-  const parsedPage = Math.max(1, Number(page) || 1);
-  const parsedLimit = Math.min(100, Math.max(1, Number(limit) || 10));
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+
+  const parsedPage = Number.isFinite(pageNumber) ? Math.max(1, pageNumber) : 1;
+  const parsedLimit = Number.isFinite(limitNumber)
+    ? Math.min(100, Math.max(1, limitNumber))
+    : 10;
 
   return {
     page: parsedPage,

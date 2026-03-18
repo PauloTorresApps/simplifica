@@ -9,6 +9,12 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/register',
     {
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: '15 minutes',
+        },
+      },
       schema: {
         description: 'Registrar novo usuário',
         tags: ['Auth'],
@@ -38,7 +44,6 @@ export async function authRoutes(app: FastifyInstance) {
                       createdAt: { type: 'string', format: 'date-time' },
                     },
                   },
-                  token: { type: 'string' },
                 },
               },
             },
@@ -52,6 +57,12 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/login',
     {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '15 minutes',
+        },
+      },
       schema: {
         description: 'Login de usuário',
         tags: ['Auth'],
@@ -75,9 +86,20 @@ export async function authRoutes(app: FastifyInstance) {
       schema: {
         description: 'Obter dados do usuário logado',
         tags: ['Auth'],
-        security: [{ bearerAuth: [] }],
+        security: [{ cookieAuth: [] }],
       },
     },
     authController.me.bind(authController)
+  );
+
+  app.post(
+    '/logout',
+    {
+      schema: {
+        description: 'Encerrar sessão do usuário',
+        tags: ['Auth'],
+      },
+    },
+    authController.logout.bind(authController)
   );
 }

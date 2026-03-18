@@ -5,6 +5,8 @@ import { ConflictError, UnauthorizedError, NotFoundError } from '../../shared/er
 import { RegisterInput, LoginInput } from './auth.schema';
 import { JwtPayload } from '../../shared/types';
 
+const DUMMY_HASH_PROMISE = hashPassword('invalid-password-for-timing-protection');
+
 export class AuthService {
   constructor(private app: FastifyInstance) {}
 
@@ -51,14 +53,11 @@ export class AuthService {
       where: { email: data.email },
     });
 
-    if (!user) {
-      throw new UnauthorizedError('Email ou senha inválidos');
-    }
+    // Always run a password comparison to reduce user-enumeration timing leaks.
+    const hashToCompare = user?.password ?? (await DUMMY_HASH_PROMISE);
+    const isPasswordValid = await comparePassword(data.password, hashToCompare);
 
-    // Verify password
-    const isPasswordValid = await comparePassword(data.password, user.password);
-
-    if (!isPasswordValid) {
+    if (!user || !isPasswordValid) {
       throw new UnauthorizedError('Email ou senha inválidos');
     }
 
