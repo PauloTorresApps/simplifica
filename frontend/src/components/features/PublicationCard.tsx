@@ -3,6 +3,7 @@ import { Calendar, FileText, ExternalLink, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Publication } from '../../types';
+import { formatSummaryPreviewText } from '../../utils/summary-html';
 
 interface PublicationCardProps {
   publication: Publication;
@@ -58,7 +59,7 @@ export function PublicationCard({ publication }: PublicationCardProps) {
                   <li key={item.id} className="text-sm text-primary-900 line-clamp-2">
                     {item.topicType ? `[${item.topicType}] ` : ''}
                     {item.topicTitle ? `${item.topicTitle} - ` : ''}
-                    {item.content}
+                    {formatSummaryPreviewText(item.content)}
                   </li>
                 ))}
               </ul>

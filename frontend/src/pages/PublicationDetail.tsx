@@ -5,6 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { usePublication } from '../hooks/usePublications';
 import { useGenerateSummary } from '../hooks/useSummaries';
 import { Loading } from '../components/common/Loading';
+import { formatSummaryHtml } from '../utils/summary-html';
 
 export function PublicationDetail() {
   const { id } = useParams<{ id: string }>();
@@ -137,13 +138,12 @@ export function PublicationDetail() {
                       <h3 className="text-base font-semibold text-primary-900 mb-3">{item.topicTitle}</h3>
                     )}
 
-                    <div className="prose prose-primary max-w-none">
-                      {item.content.split('\n').map((paragraph, paragraphIndex) => (
-                        <p key={`${item.id}-${paragraphIndex}`} className="text-gray-700 mb-3 last:mb-0">
-                          {paragraph}
-                        </p>
-                      ))}
-                    </div>
+                    <div
+                      className="summary-html"
+                      dangerouslySetInnerHTML={{
+                        __html: formatSummaryHtml(item.content),
+                      }}
+                    />
 
                     <div className="mt-4 pt-4 border-t border-primary-200 flex items-center justify-between text-sm text-gray-500">
                       <span>Gerado por: {item.model}</span>

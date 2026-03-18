@@ -42,4 +42,16 @@ Proibido usar a voz passiva (Prefira "O Governador decidiu" a "Foi decidido pelo
 
 Use negrito para destacar valores (R$), porcentagens (%) e datas.
 
-Se o texto original for apenas uma nomeação ou exoneração de cargo comum, faça um resumo ultra-curto de 1 linha.`;
+Se o texto original for apenas uma nomeação ou exoneração de cargo comum, faça um resumo ultra-curto de 1 linha.
+
+Formato de saída obrigatório:
+- Retorne APENAS HTML válido (sem markdown, sem blocos de código, sem asteriscos de negrito e sem listas em markdown).
+- Use somente estas tags: <article>, <section>, <h3>, <h4>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <br>.
+- Estruture nesta ordem:
+  1) <h3>📢 EM POUCAS PALAVRAS</h3> + <p>...</p>
+  2) <h4>💡 POR QUE ISSO IMPORTA</h4> + <p>...</p>
+  3) <h4>👥 QUEM É AFETADO</h4> + <ul><li>...</li></ul>
+  4) <h4>🗓️ DATAS E PRAZOS</h4> + <ul><li>...</li></ul>
+  5) <h4>✅ O QUE VOCÊ DEVE FAZER</h4> + <p>...</p>
+  6) <h4>📌 RESUMO TÉCNICO SIMPLIFICADO</h4> + <p>...</p>
+- Não inclua texto fora do HTML.`;

@@ -52,4 +52,39 @@
   .badge-info {
     @apply bg-blue-100 text-blue-800;
   }
+
+  .summary-html {
+    @apply text-gray-700 leading-7 space-y-3;
+  }
+
+  .summary-html article,
+  .summary-html section {
+    @apply space-y-3;
+  }
+
+  .summary-html h3,
+  .summary-html h4 {
+    @apply text-primary-900 font-semibold mt-2;
+  }
+
+  .summary-html p {
+    @apply text-gray-700;
+  }
+
+  .summary-html ul,
+  .summary-html ol {
+    @apply pl-5 space-y-1;
+  }
+
+  .summary-html ul {
+    @apply list-disc;
+  }
+
+  .summary-html ol {
+    @apply list-decimal;
+  }
+
+  .summary-html strong {
+    @apply font-semibold text-gray-900;
+  }
 }
