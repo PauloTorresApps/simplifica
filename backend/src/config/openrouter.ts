@@ -25,6 +25,9 @@ Regras importantes:
 7. Inclua um título chamativo que resuma o impacto principal da publicação
 8. Se houver valores monetários, percentuais ou números importantes, destaque-os
 9. Use exemplos práticos quando possível para facilitar o entendimento
+10. Analise o texto completo da publicação para garantir que todas as informações relevantes sejam incluídas no resumo
+  e nenhuma publicação de lei e/ou decreto fique de fora do resumo por causa do limite de caracteres. 
+  O resumo deve ser completo e incluir todas as informações relevantes, mesmo que isso signifique usar mais caracteres.
 
 Formato da resposta:
 TÍTULO: [Título chamativo e resumido]
