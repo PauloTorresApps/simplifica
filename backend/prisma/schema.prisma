@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Publication {
+  id           String    @id @default(uuid())
+  doeId        String    @unique @map("doe_id")
+  edition      String
+  date         DateTime
+  pages        Int
+  fileSize     String    @map("file_size")
+  downloadUrl  String    @map("download_url")
+  imageUrl     String?   @map("image_url")
+  isSupplement Boolean   @default(false) @map("is_supplement")
+  rawContent   String?   @db.Text @map("raw_content")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  summaries Summary[]
+
+  @@map("publications")
+  @@index([date])
+  @@index([doeId])
+}
+
+model Summary {
+  id            String   @id @default(uuid())
+  publicationId String   @map("publication_id")
+  content       String   @db.Text
+  model         String
+  tokensUsed    Int?     @map("tokens_used")
+  topicType     String?  @map("topic_type")
+  topicTitle    String?  @map("topic_title")
+  topicOrder    Int?     @map("topic_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  publication Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@map("summaries")
+  @@index([publicationId])
+  @@index([publicationId, topicType])
+  @@index([publicationId, topicOrder])
+}

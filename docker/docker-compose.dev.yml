@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: simplifica-postgres-dev
+    environment:
+      POSTGRES_DB: simplifica_dev
+      POSTGRES_USER: simplifica
+      POSTGRES_PASSWORD: simplifica123
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simplifica"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - simplifica-network-dev
+
+volumes:
+  postgres_data_dev:
+
+networks:
+  simplifica-network-dev:
+    driver: bridge

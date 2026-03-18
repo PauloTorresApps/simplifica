@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: simplifica-postgres
+    environment:
+      POSTGRES_DB: simplifica
+      POSTGRES_USER: simplifica
+      POSTGRES_PASSWORD: simplifica123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simplifica"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - simplifica-network
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: simplifica-backend
+    ports:
+      - "3333:3333"
+    environment:
+      DATABASE_URL: postgresql://simplifica:simplifica123@postgres:5432/simplifica
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRES_IN: 7d
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-3.5-sonnet}
+      DOE_API_URL: https://diariooficial.to.gov.br/api.json
+      DOE_SYNC_CRON: "0 8 * * 1-5"
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3333
+      CORS_ORIGIN: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../backend/src:/app/src
+    networks:
+      - simplifica-network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: simplifica-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:3333
+    depends_on:
+      - backend
+    networks:
+      - simplifica-network
+
+volumes:
+  postgres_data:
+
+networks:
+  simplifica-network:
+    driver: bridge
