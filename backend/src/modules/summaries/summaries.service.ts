@@ -16,6 +16,20 @@ export class SummariesService {
     const summaries = await this.summariesRepository.findByPublicationId(publicationId);
 
     if (summaries.length === 0) {
+      const publication = await this.publicationsRepository.findById(publicationId);
+
+      if (publication?.rawContent) {
+        const legalActs = parseLegalActs(publication.rawContent);
+
+        if (legalActs.length === 0) {
+          throw new AppError(
+            'Esta edição foi analisada e não possui leis, medidas provisórias ou decretos publicados para simplificação.',
+            422,
+            'NO_LEGAL_ACTS_FOUND'
+          );
+        }
+      }
+
       throw new NotFoundError('Resumo');
     }
 
@@ -38,7 +52,7 @@ export class SummariesService {
 
     if (legalActs.length === 0) {
       throw new AppError(
-        'Não foram encontrados decretos ou leis no texto desta edição',
+        'Esta edição foi analisada e não possui leis, medidas provisórias ou decretos publicados para simplificação.',
         422,
         'NO_LEGAL_ACTS_FOUND'
       );
@@ -76,7 +90,7 @@ export class SummariesService {
 
     if (generatedSummaries.length === 0) {
       throw new AppError(
-        'Não foi possível gerar os resumos dos decretos e leis desta edição',
+        'Não foi possível gerar os resumos dos decretos, leis e medidas provisórias desta edição',
         502,
         'SUMMARY_GENERATION_FAILED'
       );

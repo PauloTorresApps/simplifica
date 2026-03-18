@@ -6,6 +6,7 @@ import { OpenRouterService } from '../modules/summaries/openrouter.service';
 import { SummariesRepository } from '../modules/summaries/summaries.repository';
 import { PublicationsRepository } from '../modules/publications/publications.repository';
 import { parseLegalActs } from '../shared/utils/legal-acts-parser';
+import { extractExecutiveActsContent } from '../shared/utils/doe-content-extractor';
 
 interface DoePublication {
   id: number;
@@ -90,7 +91,9 @@ export class FetchPublicationsJob {
                 const legalActs = parseLegalActs(pdfContent);
 
                 if (legalActs.length === 0) {
-                  console.log(`ℹ️ Nenhum decreto/lei identificado na edição ${doePub.edicao}`);
+                  console.log(
+                    `ℹ️ Nenhum decreto/lei/medida provisoria identificado na edição ${doePub.edicao}`
+                  );
                 }
 
                 let generatedCount = 0;
@@ -124,7 +127,7 @@ export class FetchPublicationsJob {
                 }
 
                 console.log(
-                  `✅ ${generatedCount} resumo(s) de decretos/leis gerados para edição ${doePub.edicao}`
+                  `✅ ${generatedCount} resumo(s) de decretos/leis/medidas provisórias gerados para edição ${doePub.edicao}`
                 );
             }
           } catch (pdfError) {
@@ -148,21 +151,13 @@ export class FetchPublicationsJob {
 
   private async downloadAndExtractPdf(url: string): Promise<string | null> {
     try {
-      // Dynamic import for pdf-parse (ESM compatibility)
-      const pdfParse = (await import('pdf-parse')).default;
-
       const response = await axios.get(url, {
         responseType: 'arraybuffer',
         maxContentLength: 50 * 1024 * 1024, // 50MB max
       });
 
       const pdfBuffer = Buffer.from(response.data);
-      const pdfData = await pdfParse(pdfBuffer);
-
-      // Keep full extracted content so all decrees and laws in the edition can be parsed.
-      const content = pdfData.text;
-
-      return content || null;
+      return await extractExecutiveActsContent(pdfBuffer);
     } catch (error) {
       console.error('Erro ao extrair PDF:', error);
       return null;

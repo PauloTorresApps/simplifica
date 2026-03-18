@@ -1,4 +1,4 @@
-export type LegalActType = 'DECRETO' | 'LEI';
+export type LegalActType = 'DECRETO' | 'LEI' | 'MEDIDA_PROVISORIA';
 
 export interface LegalActChunk {
   type: LegalActType;
@@ -8,10 +8,9 @@ export interface LegalActChunk {
 }
 
 const ACT_HEADER_REGEX =
-  /(?:^|\n)\s*((?:DECRETO|LEI(?:\s+COMPLEMENTAR)?)(?:\s+N[º°oO\.]?\s*[\w.\/-]+)?[^\n]{0,180})\s*(?=\n|$)/gim;
+  /(?:^|\n)\s*((?:DECRETO|LEI(?:\s+COMPLEMENTAR)?|MEDIDA\s+PROVIS[ÓO]RIA)(?:\s+N[º°oO\.]?\s*[\w.\/-]+)?[^\n]{0,180})\s*(?=\n|$)/gim;
 
 const MIN_CHUNK_SIZE = 220;
-const MAX_CHUNK_SIZE = 15000;
 
 function normalizeWhitespace(text: string): string {
   return text
@@ -26,7 +25,17 @@ function sanitizeTitle(title: string): string {
 }
 
 function getActType(title: string): LegalActType {
-  return title.toUpperCase().startsWith('DECRETO') ? 'DECRETO' : 'LEI';
+  const upper = title.toUpperCase();
+
+  if (upper.startsWith('DECRETO')) {
+    return 'DECRETO';
+  }
+
+  if (/^MEDIDA\s+PROVIS[ÓO]RIA/i.test(title)) {
+    return 'MEDIDA_PROVISORIA';
+  }
+
+  return 'LEI';
 }
 
 export function parseLegalActs(rawText: string): LegalActChunk[] {
@@ -72,7 +81,7 @@ export function parseLegalActs(rawText: string): LegalActChunk[] {
     chunks.push({
       type: getActType(current.title),
       title: current.title,
-      content: fullChunk.slice(0, MAX_CHUNK_SIZE),
+      content: fullChunk,
       order: chunks.length + 1,
     });
   }

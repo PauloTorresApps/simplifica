@@ -19,7 +19,7 @@ export function useGenerateSummary() {
       queryClient.invalidateQueries({ queryKey: ['summaries', publicationId] });
       queryClient.invalidateQueries({ queryKey: ['publication', publicationId] });
       queryClient.invalidateQueries({ queryKey: ['publications'] });
-      toast.success('Resumos de decretos e leis gerados com sucesso!');
+      toast.success('Resumos de decretos, leis e medidas provisórias gerados com sucesso!');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Erro ao gerar resumo');

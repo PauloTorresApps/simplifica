@@ -37,6 +37,7 @@ export function PublicationDetail() {
   const summaries = hasSummary ? publication.summaries : [];
   const decreeCount = summaries.filter((item) => item.topicType === 'DECRETO').length;
   const lawCount = summaries.filter((item) => item.topicType === 'LEI').length;
+  const mpCount = summaries.filter((item) => item.topicType === 'MEDIDA_PROVISORIA').length;
 
   const handleGenerateSummary = () => {
     generateSummary.mutate(publication.id);
@@ -96,7 +97,7 @@ export function PublicationDetail() {
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary-600" />
             <h2 className="text-xl font-semibold text-gray-900">
-                Decretos e Leis em Linguagem Simples
+              Decretos, Leis e Medidas Provisorias em Linguagem Simples
             </h2>
           </div>
           {hasSummary && (
@@ -119,8 +120,8 @@ export function PublicationDetail() {
             <div className="space-y-4">
               <div className="bg-primary-50 rounded-xl p-4 text-sm text-primary-900">
                 <strong>{summaries.length}</strong> tópico(s) encontrado(s)
-                {decreeCount + lawCount > 0
-                  ? ` • ${decreeCount} decreto(s) • ${lawCount} lei(s)`
+                {decreeCount + lawCount + mpCount > 0
+                  ? ` • ${decreeCount} decreto(s) • ${lawCount} lei(s) • ${mpCount} medida(s) provisória(s)`
                   : ''}
             </div>
 
@@ -160,7 +161,7 @@ export function PublicationDetail() {
           <div className="text-center py-8">
             <Sparkles className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">
-                Esta edição ainda não possui decretos/leis simplificados pela IA.
+              Esta edição ainda não possui decretos/leis/medidas provisórias simplificados pela IA.
             </p>
             <button
               onClick={handleGenerateSummary}
@@ -175,7 +176,7 @@ export function PublicationDetail() {
               ) : (
                 <>
                   <Sparkles className="w-5 h-5" />
-                    Gerar Resumos dos Decretos e Leis
+                    Gerar Resumos dos Decretos, Leis e Medidas Provisorias
                 </>
               )}
             </button>
