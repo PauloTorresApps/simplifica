@@ -1,4 +1,6 @@
-const ALLOWED_TAGS = new Set([
+import DOMPurify from 'dompurify';
+
+const ALLOWED_TAGS = [
   'article',
   'section',
   'h1',
@@ -15,7 +17,7 @@ const ALLOWED_TAGS = new Set([
   'em',
   'span',
   'br',
-]);
+];
 
 function escapeHtml(text: string): string {
   return text
@@ -24,30 +26,6 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function sanitizeNode(node: ChildNode): string {
-  if (node.nodeType === Node.TEXT_NODE) {
-    return escapeHtml(node.textContent || '');
-  }
-
-  if (node.nodeType !== Node.ELEMENT_NODE) {
-    return '';
-  }
-
-  const element = node as HTMLElement;
-  const tag = element.tagName.toLowerCase();
-  const children = Array.from(element.childNodes).map(sanitizeNode).join('');
-
-  if (!ALLOWED_TAGS.has(tag)) {
-    return children;
-  }
-
-  if (tag === 'br') {
-    return '<br/>';
-  }
-
-  return `<${tag}>${children}</${tag}>`;
 }
 
 function convertBoldMarkdown(input: string): string {
@@ -110,12 +88,16 @@ export function formatSummaryHtml(content: string): string {
     return '<p>Resumo indisponivel.</p>';
   }
 
-  const source = looksLikeHtml(normalized)
+  const unsafeHtml = looksLikeHtml(normalized)
     ? normalized
     : convertLegacyTextToHtml(normalized);
 
-  const parsed = new DOMParser().parseFromString(source, 'text/html');
-  const safeHtml = Array.from(parsed.body.childNodes).map(sanitizeNode).join('');
+  const safeHtml = DOMPurify.sanitize(unsafeHtml, {
+    ALLOWED_TAGS: ALLOWED_TAGS,
+    ALLOWED_ATTR: [],
+    ALLOW_DATA_ATTR: false,
+    ALLOW_ARIA_ATTR: false,
+  }).trim();
 
   return safeHtml || `<p>${escapeHtml(normalized)}</p>`;
 }
@@ -127,11 +109,18 @@ export function formatSummaryPreviewText(content: string, maxLength: number = 22
     return 'Resumo indisponivel.';
   }
 
-  const source = looksLikeHtml(normalized)
+  const unsafeHtml = looksLikeHtml(normalized)
     ? normalized
     : convertLegacyTextToHtml(normalized);
 
-  const parsed = new DOMParser().parseFromString(source, 'text/html');
+  const safeHtml = DOMPurify.sanitize(unsafeHtml, {
+    ALLOWED_TAGS: ALLOWED_TAGS,
+    ALLOWED_ATTR: [],
+    ALLOW_DATA_ATTR: false,
+    ALLOW_ARIA_ATTR: false,
+  });
+
+  const parsed = new DOMParser().parseFromString(safeHtml, 'text/html');
   const rawText = (parsed.body.textContent || '').replace(/\s+/g, ' ').trim();
 
   if (!rawText) {

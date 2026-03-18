@@ -6,6 +6,7 @@ import { usePublication } from '../hooks/usePublications';
 import { useGenerateSummary } from '../hooks/useSummaries';
 import { Loading } from '../components/common/Loading';
 import { formatSummaryHtml } from '../utils/summary-html';
+import { getSafeExternalUrl } from '../utils/external-url';
 
 export function PublicationDetail() {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +40,7 @@ export function PublicationDetail() {
   const decreeCount = summaries.filter((item) => item.topicType === 'DECRETO').length;
   const lawCount = summaries.filter((item) => item.topicType === 'LEI').length;
   const mpCount = summaries.filter((item) => item.topicType === 'MEDIDA_PROVISORIA').length;
+  const safeDownloadUrl = getSafeExternalUrl(publication.downloadUrl);
 
   const handleGenerateSummary = () => {
     generateSummary.mutate(publication.id);
@@ -80,15 +82,26 @@ export function PublicationDetail() {
               <span>{publication.fileSize}</span>
             </div>
           </div>
-          <a
-            href={publication.downloadUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-outline flex items-center justify-center gap-2"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Baixar PDF Original
-          </a>
+          {safeDownloadUrl ? (
+            <a
+              href={safeDownloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-outline flex items-center justify-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Baixar PDF Original
+            </a>
+          ) : (
+            <span
+              className="btn-outline flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
+              aria-disabled="true"
+              title="Link externo indisponivel"
+            >
+              <ExternalLink className="w-4 h-4" />
+              PDF indisponivel
+            </span>
+          )}
         </div>
       </div>
 

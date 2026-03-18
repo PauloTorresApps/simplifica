@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Publication } from '../../types';
 import { formatSummaryPreviewText } from '../../utils/summary-html';
+import { getSafeExternalUrl } from '../../utils/external-url';
 
 interface PublicationCardProps {
   publication: Publication;
@@ -15,6 +16,7 @@ export function PublicationCard({ publication }: PublicationCardProps) {
   const previewSummaries = summaries.slice(0, 2);
   const decreeCount = summaries.filter((item) => item.topicType === 'DECRETO').length;
   const lawCount = summaries.filter((item) => item.topicType === 'LEI').length;
+  const safeDownloadUrl = getSafeExternalUrl(publication.downloadUrl);
 
   const formattedDate = format(new Date(publication.date), "dd 'de' MMMM 'de' yyyy", {
     locale: ptBR,
@@ -84,15 +86,26 @@ export function PublicationCard({ publication }: PublicationCardProps) {
           >
             Ver Detalhes
           </Link>
-          <a
-            href={publication.downloadUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-outline flex items-center justify-center gap-2"
-          >
-            <ExternalLink className="w-4 h-4" />
-            PDF
-          </a>
+          {safeDownloadUrl ? (
+            <a
+              href={safeDownloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-outline flex items-center justify-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              PDF
+            </a>
+          ) : (
+            <span
+              className="btn-outline flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
+              aria-disabled="true"
+              title="Link externo indisponivel"
+            >
+              <ExternalLink className="w-4 h-4" />
+              PDF indisponivel
+            </span>
+          )}
         </div>
       </div>
     </div>
