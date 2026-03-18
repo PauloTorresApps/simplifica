@@ -43,9 +43,7 @@ export class FetchPublicationsJob {
 
     try {
       // Fetch publications from DOE-TO API
-      const response = await axios.get<DoePublication[]>(env.DOE_API_URL, {
-        timeout: 30000,
-      });
+      const response = await axios.get<DoePublication[]>(env.DOE_API_URL);
 
       const publications = response.data;
       console.log(`📥 ${publications.length} publicações encontradas na API`);
@@ -155,7 +153,6 @@ export class FetchPublicationsJob {
 
       const response = await axios.get(url, {
         responseType: 'arraybuffer',
-        timeout: 60000,
         maxContentLength: 50 * 1024 * 1024, // 50MB max
       });
 

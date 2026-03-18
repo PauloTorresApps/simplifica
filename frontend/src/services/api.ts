@@ -12,7 +12,6 @@ class ApiService {
   constructor() {
     this.api = axios.create({
       baseURL: API_URL,
-      timeout: 30000,
       withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
@@ -23,7 +22,13 @@ class ApiService {
     this.api.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response?.status === 401) {
+        const status = error.response?.status;
+        const requestUrl = String(error.config?.url || '');
+        const isSessionProbe = requestUrl.includes('/api/auth/me');
+        const isPublicAuthPage =
+          window.location.pathname === '/login' || window.location.pathname === '/register';
+
+        if (status === 401 && !isSessionProbe && !isPublicAuthPage) {
           window.location.href = '/login';
         }
         return Promise.reject(error);
