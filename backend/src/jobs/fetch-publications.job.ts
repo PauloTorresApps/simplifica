@@ -7,6 +7,7 @@ import { SummariesRepository } from '../modules/summaries/summaries.repository';
 import { PublicationsRepository } from '../modules/publications/publications.repository';
 import { parseLegalActs } from '../shared/utils/legal-acts-parser';
 import { extractExecutiveActsContent } from '../shared/utils/doe-content-extractor';
+import { validateExternalUrl } from '../shared/utils/external-url-guard';
 
 interface DoePublication {
   id: number;
@@ -21,16 +22,30 @@ interface DoePublication {
   imagem: string;
 }
 
+const ALLOWED_PDF_CONTENT_TYPES = [
+  'application/pdf',
+  'application/octet-stream',
+  'binary/octet-stream',
+];
+
 export class FetchPublicationsJob {
   private openRouterService: OpenRouterService;
   private summariesRepository: SummariesRepository;
   private publicationsRepository: PublicationsRepository;
+  private readonly allowedHosts: string[];
   private isRunning: boolean = false;
 
   constructor() {
     this.openRouterService = new OpenRouterService();
     this.summariesRepository = new SummariesRepository();
     this.publicationsRepository = new PublicationsRepository();
+    this.allowedHosts = env.DOE_ALLOWED_HOSTS.split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (this.allowedHosts.length === 0) {
+      throw new Error('DOE_ALLOWED_HOSTS deve conter ao menos um hostname válido');
+    }
   }
 
   async execute(): Promise<void> {
@@ -43,8 +58,13 @@ export class FetchPublicationsJob {
     console.log('🔄 Iniciando sincronização com DOE-TO...');
 
     try {
+      const safeDoeApiUrl = validateExternalUrl(env.DOE_API_URL, this.allowedHosts);
+
       // Fetch publications from DOE-TO API
-      const response = await axios.get<DoePublication[]>(env.DOE_API_URL);
+      const response = await axios.get<DoePublication[]>(safeDoeApiUrl.toString(), {
+        timeout: env.HTTP_TIMEOUT_MS,
+        maxRedirects: 2,
+      });
 
       const publications = response.data;
       console.log(`📥 ${publications.length} publicações encontradas na API`);
@@ -151,10 +171,22 @@ export class FetchPublicationsJob {
 
   private async downloadAndExtractPdf(url: string): Promise<string | null> {
     try {
-      const response = await axios.get(url, {
+      const safePdfUrl = validateExternalUrl(url, this.allowedHosts);
+
+      const response = await axios.get(safePdfUrl.toString(), {
         responseType: 'arraybuffer',
         maxContentLength: 50 * 1024 * 1024, // 50MB max
+        timeout: env.PDF_DOWNLOAD_TIMEOUT_MS,
+        maxRedirects: 1,
       });
+
+      const contentTypeHeader = response.headers['content-type'];
+      const contentType = Array.isArray(contentTypeHeader) ? contentTypeHeader[0] : contentTypeHeader;
+
+      if (contentType && !ALLOWED_PDF_CONTENT_TYPES.some((allowed) => contentType.includes(allowed))) {
+        console.error(`Conteúdo inesperado para PDF: ${contentType}`);
+        return null;
+      }
 
       const pdfBuffer = Buffer.from(response.data);
       return await extractExecutiveActsContent(pdfBuffer);

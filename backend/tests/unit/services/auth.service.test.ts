@@ -3,6 +3,12 @@ import { AuthService } from '../../../src/modules/auth/auth.service';
 import { prisma } from '../../../src/config/database';
 import { ConflictError, UnauthorizedError, NotFoundError } from '../../../src/shared/errors/app-error';
 
+vi.mock('../../../src/config/env', () => ({
+  env: {
+    JWT_EXPIRES_IN: '7d',
+  },
+}));
+
 // Mock Prisma
 vi.mock('../../../src/config/database', () => ({
   prisma: {

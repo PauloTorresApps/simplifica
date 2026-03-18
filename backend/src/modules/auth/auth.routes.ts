@@ -95,6 +95,13 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/logout',
     {
+      onRequest: [app.authenticate],
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '15 minutes',
+        },
+      },
       schema: {
         description: 'Encerrar sessão do usuário',
         tags: ['Auth'],

@@ -6,12 +6,45 @@ import { env } from '../../config/env';
 
 const AUTH_COOKIE_NAME = 'auth_token';
 
+function parseExpiresInToSeconds(expiresIn: string): number | null {
+  const value = expiresIn.trim().toLowerCase();
+
+  if (!value) {
+    return null;
+  }
+
+  if (/^\d+$/.test(value)) {
+    return Number(value);
+  }
+
+  const match = value.match(/^(\d+)([smhdw])$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+
+  const multipliers: Record<string, number> = {
+    s: 1,
+    m: 60,
+    h: 60 * 60,
+    d: 60 * 60 * 24,
+    w: 60 * 60 * 24 * 7,
+  };
+
+  return amount * multipliers[unit];
+}
+
+const cookieMaxAgeSeconds = parseExpiresInToSeconds(env.JWT_EXPIRES_IN) ?? 7 * 24 * 60 * 60;
+
 const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   path: '/',
-  maxAge: 7 * 24 * 60 * 60,
+  maxAge: cookieMaxAgeSeconds,
 };
 
 export class AuthController {

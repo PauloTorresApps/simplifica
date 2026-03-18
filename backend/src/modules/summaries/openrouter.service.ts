@@ -1,8 +1,13 @@
 import axios from 'axios';
 import { openRouterConfig, SUMMARY_SYSTEM_PROMPT } from '../../config/openrouter';
+import { env } from '../../config/env';
 import { AppError } from '../../shared/errors/app-error';
 
 const MAX_CONTEXT_FIELD_CHARS = 200;
+
+function sanitizeProviderMessage(message: string): string {
+  return message.replace(/[\r\n\t]/g, ' ').trim().slice(0, 200);
+}
 
 function sanitizeContextField(value?: string): string {
   if (!value) {
@@ -50,6 +55,14 @@ export class OpenRouterService {
     context?: SummaryGenerationContext
   ): Promise<LLMResponse> {
     try {
+      if (content.length > env.SUMMARY_MAX_CONTENT_CHARS) {
+        throw new AppError(
+          `Conteúdo excede o limite de ${env.SUMMARY_MAX_CONTENT_CHARS} caracteres para geração de resumo`,
+          413,
+          'SUMMARY_CONTENT_TOO_LARGE'
+        );
+      }
+
       const contextType = sanitizeContextField(context?.legalType);
       const contextTitle = sanitizeContextField(context?.legalTitle);
 
@@ -76,6 +89,8 @@ export class OpenRouterService {
         },
         {
           headers: openRouterConfig.buildHeaders(),
+          timeout: env.OPENROUTER_TIMEOUT_MS,
+          maxRedirects: 0,
         }
       );
 
@@ -92,15 +107,27 @@ export class OpenRouterService {
       };
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.error?.message || error.message;
-        throw new AppError(`Erro ao gerar resumo: ${message}`, 502, 'LLM_ERROR');
+        const status = error.response?.status;
+        const providerRawMessage =
+          typeof error.response?.data?.error?.message === 'string'
+            ? error.response.data.error.message
+            : null;
+        const providerMessage = providerRawMessage
+          ? sanitizeProviderMessage(providerRawMessage)
+          : 'Falha de comunicação com o provedor de IA';
+
+        throw new AppError(
+          status
+            ? `Erro ao gerar resumo (provedor retornou status ${status}): ${providerMessage}`
+            : `Erro ao gerar resumo: ${providerMessage}`,
+          502,
+          'LLM_ERROR'
+        );
       }
       if (error instanceof AppError) {
         throw error;
       }
-      if (error instanceof Error) {
-        throw new AppError(`Erro ao gerar resumo: ${error.message}`, 502, 'LLM_ERROR');
-      }
+
       throw new AppError('Erro ao gerar resumo', 502, 'LLM_ERROR');
     }
   }

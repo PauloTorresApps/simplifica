@@ -20,12 +20,19 @@ const envSchema = z.object({
 
   // DOE-TO API
   DOE_API_URL: z.string().url().default('https://diariooficial.to.gov.br/api.json'),
+  DOE_ALLOWED_HOSTS: z.string().default('diariooficial.to.gov.br'),
   DOE_SYNC_CRON: z.string().default('0 8 * * 1-5'),
+  HTTP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(15000),
+  PDF_DOWNLOAD_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
+  OPENROUTER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
+  SUMMARY_MAX_CONTENT_CHARS: z.coerce.number().int().min(1000).max(500000).default(120000),
 
   // App
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3333),
   CORS_ORIGIN: z.string().default('http://localhost:3000,http://127.0.0.1:3000'),
+  DOCS_AUTH_USER: z.string().default(''),
+  DOCS_AUTH_PASSWORD: z.string().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;

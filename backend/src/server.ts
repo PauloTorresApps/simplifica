@@ -30,10 +30,15 @@ async function start() {
       host: '0.0.0.0',
     });
 
+    const docsLine =
+      env.NODE_ENV === 'production'
+        ? '📚 Docs: desabilitada em produção'
+        : `📚 Docs: http://localhost:${env.PORT}/docs`;
+
     console.log(`
 🚀 Simplifica API rodando!
 📍 URL: http://localhost:${env.PORT}
-📚 Docs: http://localhost:${env.PORT}/docs
+${docsLine}
 🏥 Health: http://localhost:${env.PORT}/health
     `);
   } catch (error) {

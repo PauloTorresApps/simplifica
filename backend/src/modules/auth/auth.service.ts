@@ -4,6 +4,7 @@ import { hashPassword, comparePassword } from '../../shared/utils/hash';
 import { ConflictError, UnauthorizedError, NotFoundError } from '../../shared/errors/app-error';
 import { RegisterInput, LoginInput } from './auth.schema';
 import { JwtPayload } from '../../shared/types';
+import { env } from '../../config/env';
 
 const DUMMY_HASH_PROMISE = hashPassword('invalid-password-for-timing-protection');
 
@@ -41,7 +42,7 @@ export class AuthService {
     // Generate token
     const token = this.app.jwt.sign(
       { sub: user.id, email: user.email, name: user.name } as JwtPayload,
-      { expiresIn: '7d' }
+      { expiresIn: env.JWT_EXPIRES_IN }
     );
 
     return { user, token };
@@ -64,7 +65,7 @@ export class AuthService {
     // Generate token
     const token = this.app.jwt.sign(
       { sub: user.id, email: user.email, name: user.name } as JwtPayload,
-      { expiresIn: '7d' }
+      { expiresIn: env.JWT_EXPIRES_IN }
     );
 
     return {

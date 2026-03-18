@@ -20,6 +20,12 @@ export async function summariesRoutes(app: FastifyInstance) {
     '/:publicationId',
     {
       onRequest: [app.authenticate],
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute',
+        },
+      },
       schema: {
         description: 'Obter resumos de uma publicação',
         tags: ['Summaries'],
@@ -40,6 +46,12 @@ export async function summariesRoutes(app: FastifyInstance) {
     '/generate/:publicationId',
     {
       onRequest: [app.authenticate],
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '1 hour',
+        },
+      },
       schema: {
         description: 'Gerar resumo para uma publicação',
         tags: ['Summaries'],

@@ -153,11 +153,38 @@ describe('Auth Cookie Flow', () => {
   });
 
   it('should clear auth cookie on logout', async () => {
+    const { hashPassword } = await import('../../src/shared/utils/hash');
+    const hashedPassword = await hashPassword('Password123');
+
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-id',
+      email: 'test@example.com',
+      password: hashedPassword,
+      name: 'Test User',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: {
+        email: 'test@example.com',
+        password: 'Password123',
+      },
+      headers: {
+        origin: 'http://localhost:3000',
+      },
+    });
+
+    const authCookie = getFirstCookie(loginResponse.headers['set-cookie']);
+
     const response = await app.inject({
       method: 'POST',
       url: '/api/auth/logout',
       headers: {
         origin: 'http://localhost:3000',
+        cookie: authCookie,
       },
     });
 
@@ -166,5 +193,44 @@ describe('Auth Cookie Flow', () => {
 
     const setCookie = response.headers['set-cookie'];
     expect(String(setCookie)).toContain('auth_token=');
+  });
+
+  it('should block logout when cookie is present but origin and referer are missing', async () => {
+    const { hashPassword } = await import('../../src/shared/utils/hash');
+    const hashedPassword = await hashPassword('Password123');
+
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-id',
+      email: 'test@example.com',
+      password: hashedPassword,
+      name: 'Test User',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: {
+        email: 'test@example.com',
+        password: 'Password123',
+      },
+      headers: {
+        origin: 'http://localhost:3000',
+      },
+    });
+
+    const authCookie = getFirstCookie(loginResponse.headers['set-cookie']);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/auth/logout',
+      headers: {
+        cookie: authCookie,
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error?.code).toBe('FORBIDDEN');
   });
 });
