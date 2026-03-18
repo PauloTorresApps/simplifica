@@ -16,7 +16,7 @@ O Simplifica consome publicações do Diário Oficial do Tocantins via API, util
 
 ## 🏗️ Arquitetura
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        DOCKER COMPOSE                           │
 │                                                                 │
@@ -37,6 +37,7 @@ O Simplifica consome publicações do Diário Oficial do Tocantins via API, util
 ## 🛠️ Stack Tecnológico
 
 ### Backend
+
 - **Runtime**: Node.js 20
 - **Framework**: Fastify
 - **ORM**: Prisma
@@ -47,6 +48,7 @@ O Simplifica consome publicações do Diário Oficial do Tocantins via API, util
 - **Testes**: Vitest + Supertest
 
 ### Frontend
+
 - **Framework**: React 18
 - **Build**: Vite
 - **Estilização**: Tailwind CSS
@@ -55,12 +57,13 @@ O Simplifica consome publicações do Diário Oficial do Tocantins via API, util
 - **Testes**: Vitest + React Testing Library
 
 ### Infraestrutura
+
 - **Containerização**: Docker + Docker Compose
 - **LLM**: OpenRouter (Claude 3.5 Sonnet)
 
 ## 📁 Estrutura do Projeto
 
-```
+```text
 simplifica/
 ├── docker/
 │   ├── docker-compose.yml
@@ -153,17 +156,17 @@ docker compose exec backend npx prisma migrate dev
 
 ### 5. Acesse a aplicação
 
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3333
-- **Documentação Swagger**: http://localhost:3333/docs
-- **Health Check**: http://localhost:3333/health
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:3333](http://localhost:3333)
+- **Documentação Swagger**: [http://localhost:3333/docs](http://localhost:3333/docs)
+- **Health Check**: [http://localhost:3333/health](http://localhost:3333/health)
 
 ## 📚 API Endpoints
 
 ### Autenticação
 
 | Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
+| --- | --- | --- | --- |
 | POST | `/api/auth/register` | Registrar novo usuário | ❌ |
 | POST | `/api/auth/login` | Login | ❌ |
 | POST | `/api/auth/logout` | Encerrar sessão | ❌ |
@@ -174,7 +177,7 @@ Observação: autenticação é baseada em cookie `httpOnly` (`auth_token`) com 
 ### Publicações
 
 | Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
+| --- | --- | --- | --- |
 | GET | `/api/publications` | Listar publicações | ✅ |
 | GET | `/api/publications/:id` | Detalhe da publicação | ✅ |
 | GET | `/api/publications/date/:date` | Publicações por data | ✅ |
@@ -182,13 +185,13 @@ Observação: autenticação é baseada em cookie `httpOnly` (`auth_token`) com 
 ### Resumos
 
 | Método | Endpoint | Descrição | Auth |
-|--------|----------|-----------|------|
+| --- | --- | --- | --- |
 | GET | `/api/summaries/:publicationId` | Resumos da publicação | ✅ |
 | POST | `/api/summaries/generate/:publicationId` | Gerar resumo | ✅ |
 
 ## 🧪 Testes
 
-### Backend
+### Backend Tests
 
 ```bash
 cd backend
@@ -197,7 +200,7 @@ npm run test:watch       # Modo watch
 npm run test:coverage    # Com cobertura
 ```
 
-### Frontend
+### Frontend Tests
 
 ```bash
 cd frontend
@@ -246,7 +249,7 @@ docker compose logs -f   # Ver logs
 
 ### Diagrama ER
 
-```
+```text
 ┌─────────────┐       ┌─────────────────┐       ┌─────────────┐
 │    users    │       │  publications   │       │  summaries  │
 ├─────────────┤       ├─────────────────┤       ├─────────────┤

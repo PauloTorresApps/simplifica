@@ -35,8 +35,16 @@ function validateEnv(): Env {
     return envSchema.parse(process.env);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const missingVars = error.errors.map((e) => e.path.join('.')).join(', ');
-      throw new Error(`❌ Variáveis de ambiente inválidas: ${missingVars}`);
+      const issues = error.errors.map((issue) => ({
+        path: issue.path.join('.') || 'unknown',
+        message: issue.message,
+      }));
+      const invalidVars = [...new Set(issues.map((issue) => issue.path))].join(', ');
+      const details = issues
+        .map((issue) => `${issue.path}: ${issue.message}`)
+        .join(' | ');
+
+      throw new Error(`❌ Variáveis de ambiente inválidas: ${invalidVars}. Detalhes: ${details}`);
     }
     throw error;
   }
