@@ -2,6 +2,7 @@ import { prisma } from '../../config/database';
 import { Prisma } from '@prisma/client';
 import { getPaginationParams, createPaginatedResult, getSkip } from '../../shared/utils/pagination';
 import { PaginatedResult } from '../../shared/types';
+import { getUtcDateRange } from '../../shared/utils/date-only';
 
 export interface PublicationWithSummary {
   id: string;
@@ -40,9 +41,7 @@ export class PublicationsRepository {
     const where: Prisma.PublicationWhereInput = {};
 
     if (filters?.date) {
-      const startDate = new Date(filters.date);
-      const endDate = new Date(filters.date);
-      endDate.setDate(endDate.getDate() + 1);
+      const { startDate, endDate } = getUtcDateRange(filters.date);
 
       where.date = {
         gte: startDate,
@@ -98,9 +97,7 @@ export class PublicationsRepository {
   }
 
   async findByDate(date: string): Promise<PublicationWithSummary[]> {
-    const startDate = new Date(date);
-    const endDate = new Date(date);
-    endDate.setDate(endDate.getDate() + 1);
+    const { startDate, endDate } = getUtcDateRange(date);
 
     return prisma.publication.findMany({
       where: {

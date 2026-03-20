@@ -7,6 +7,7 @@ import { useGenerateSummary } from '../hooks/useSummaries';
 import { Loading } from '../components/common/Loading';
 import { formatSummaryHtml } from '../utils/summary-html';
 import { getSafeExternalUrl } from '../utils/external-url';
+import { formatPublicationDate } from '../utils/publication-date';
 
 export function PublicationDetail() {
   const { id } = useParams<{ id: string }>();
@@ -31,9 +32,7 @@ export function PublicationDetail() {
     );
   }
 
-  const formattedDate = format(new Date(publication.date), "dd 'de' MMMM 'de' yyyy", {
-    locale: ptBR,
-  });
+  const formattedDate = formatPublicationDate(publication.date);
 
   const hasSummary = publication.summaries && publication.summaries.length > 0;
   const summaries = hasSummary ? publication.summaries : [];

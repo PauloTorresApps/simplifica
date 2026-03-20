@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Calendar, FileText, ExternalLink, Sparkles } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Publication } from '../../types';
 import { formatSummaryPreviewText } from '../../utils/summary-html';
 import { getSafeExternalUrl } from '../../utils/external-url';
+import { formatPublicationDate } from '../../utils/publication-date';
 
 interface PublicationCardProps {
   publication: Publication;
@@ -18,9 +17,7 @@ export function PublicationCard({ publication }: PublicationCardProps) {
   const lawCount = summaries.filter((item) => item.topicType === 'LEI').length;
   const safeDownloadUrl = getSafeExternalUrl(publication.downloadUrl);
 
-  const formattedDate = format(new Date(publication.date), "dd 'de' MMMM 'de' yyyy", {
-    locale: ptBR,
-  });
+  const formattedDate = formatPublicationDate(publication.date);
 
   return (
     <div className="card hover:shadow-md transition-shadow duration-200">

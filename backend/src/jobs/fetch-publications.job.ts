@@ -7,6 +7,7 @@ import { PublicationsRepository } from '../modules/publications/publications.rep
 import { parseLegalActs } from '../shared/utils/legal-acts-parser';
 import { extractExecutiveActsContent } from '../shared/utils/doe-content-extractor';
 import { validateExternalUrl } from '../shared/utils/external-url-guard';
+import { parseIsoDateOnlyToUtcDate } from '../shared/utils/date-only';
 
 interface DoePublication {
   id: number;
@@ -85,7 +86,7 @@ export class FetchPublicationsJob {
             publication = await this.publicationsRepository.create({
               doeId: doePub.id.toString(),
               edition: doePub.edicao,
-              date: new Date(doePub.data_iso8601),
+              date: parseIsoDateOnlyToUtcDate(doePub.data_iso8601),
               pages: doePub.paginas,
               fileSize: doePub.tamanho,
               downloadUrl: doePub.link,
