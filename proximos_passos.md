@@ -1,0 +1,3 @@
+- limitar tamanho da resposta via prompt;
+- implementar jobs para que uma análise não bloqueie o sistema;
+-
