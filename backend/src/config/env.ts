@@ -44,6 +44,7 @@ const envSchema = z.object({
   HTTP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(15000),
   PDF_DOWNLOAD_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   OPENROUTER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
+  OPENROUTER_RATE_LIMIT_DELAY_MS: z.coerce.number().int().min(1000).max(300000).default(10000),
   SUMMARY_MAX_CONTENT_CHARS: z.coerce.number().int().min(1000).max(500000).default(120000),
 
   // App

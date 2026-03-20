@@ -130,8 +130,8 @@ JWT_EXPIRES_IN=7d
 
 # OpenRouter (obtenha em https://openrouter.ai)
 OPENROUTER_API_KEY=sk-or-v1-sua-api-key-aqui
-OPENROUTER_MODEL=openrouter/hunter-alpha
-OPENROUTER_FALLBACK_MODEL=openrouter/auto,openai/gpt-oss-120b:free,nvidia/nemotron-3-super-120b-a12b:free
+OPENROUTER_MODEL=openai/gpt-oss-120b:free
+OPENROUTER_FALLBACK_MODEL=nvidia/nemotron-3-super-120b-a12b:free
 OPENROUTER_PROVIDER_SORT_BY=throughput
 OPENROUTER_PROVIDER_SORT_PARTITION=model
 

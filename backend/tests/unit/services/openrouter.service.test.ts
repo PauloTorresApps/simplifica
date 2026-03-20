@@ -18,7 +18,7 @@ vi.mock('../../../src/config/openrouter', () => ({
   openRouterConfig: {
     apiKey: 'test-key',
     model: 'primary-model',
-    fallbackModel: 'openai/gpt-oss-120b:free,openrouter/auto',
+    fallbackModel: 'openai/gpt-oss-120b:free,openrouter/auto,nvidia/nemotron-3-super-120b-a12b:free',
     timeoutMs: 30000,
     baseUrl: 'https://openrouter.ai/api/v1',
     httpReferer: 'https://simplifica.app',
@@ -34,6 +34,7 @@ vi.mock('../../../src/config/openrouter', () => ({
 vi.mock('../../../src/config/env', () => ({
   env: {
     SUMMARY_MAX_CONTENT_CHARS: 120000,
+    OPENROUTER_RATE_LIMIT_DELAY_MS: 12000,
   },
 }));
 
@@ -92,7 +93,6 @@ describe('OpenRouterService', () => {
     expect(chatSendMock).toHaveBeenCalledTimes(2);
     expect(chatSendMock.mock.calls[0][0]).toMatchObject({
       chatGenerationParams: {
-        model: 'primary-model',
         models: ['primary-model', 'openai/gpt-oss-120b:free', 'openrouter/auto'],
         provider: {
           sort: {
@@ -105,10 +105,17 @@ describe('OpenRouterService', () => {
     expect(chatSendMock.mock.calls[0][1]).toMatchObject({ timeoutMs: 30000 });
     expect(chatSendMock.mock.calls[1][0]).toMatchObject({
       chatGenerationParams: {
-        model: 'openai/gpt-oss-120b:free',
-        models: ['openai/gpt-oss-120b:free', 'openrouter/auto'],
+        models: [
+          'openai/gpt-oss-120b:free',
+          'openrouter/auto',
+          'nvidia/nemotron-3-super-120b-a12b:free',
+        ],
       },
     });
+    expect(chatSendMock.mock.calls[0][0].chatGenerationParams.models).toHaveLength(3);
+    expect(chatSendMock.mock.calls[1][0].chatGenerationParams.models).toHaveLength(3);
+    expect(chatSendMock.mock.calls[0][0].chatGenerationParams).not.toHaveProperty('model');
+    expect(chatSendMock.mock.calls[1][0].chatGenerationParams).not.toHaveProperty('model');
     expect(result.model).toBe('openai/gpt-oss-120b:free');
     expect(result.tokensUsed).toBe(30);
   });
@@ -163,10 +170,14 @@ describe('OpenRouterService', () => {
 
     expect(chatSendMock).toHaveBeenCalledTimes(2);
     expect(chatSendMock.mock.calls[0][0]).toMatchObject({
-      chatGenerationParams: { model: 'primary-model' },
+      chatGenerationParams: {
+        models: ['primary-model', 'openai/gpt-oss-120b:free', 'openrouter/auto'],
+      },
     });
     expect(chatSendMock.mock.calls[1][0]).toMatchObject({
-      chatGenerationParams: { model: 'primary-model' },
+      chatGenerationParams: {
+        models: ['primary-model', 'openai/gpt-oss-120b:free', 'openrouter/auto'],
+      },
     });
     expect(result.model).toBe('primary-model');
     expect(result.tokensUsed).toBe(34);

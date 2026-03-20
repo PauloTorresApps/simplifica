@@ -60,4 +60,21 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
+process.on('unhandledRejection', (reason) => {
+  const message = reason instanceof Error ? reason.stack || reason.message : String(reason);
+  console.error('⚠️ Promise rejeitada sem tratamento:', message);
+});
+
+process.on('uncaughtException', async (error) => {
+  console.error('❌ Exceção não tratada:', error);
+
+  try {
+    await Database.disconnect();
+  } catch {
+    // no-op
+  }
+
+  process.exit(1);
+});
+
 start();

@@ -115,11 +115,14 @@ export function errorHandler(
 
   // Fastify errors
   if ('statusCode' in error) {
+    const statusCode = error.statusCode || 500;
+    const isServerError = statusCode >= 500;
+
     return reply.status(error.statusCode || 500).send({
       success: false,
       error: {
         code: 'FASTIFY_ERROR',
-        message: error.message,
+        message: isServerError ? 'Erro interno do servidor' : error.message,
       },
     });
   }
