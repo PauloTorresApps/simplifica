@@ -320,6 +320,36 @@ function getEmptyResponseDiagnostics(response: unknown): string {
   return `responseKeys=${responseKeys}; choices=${choices.length}; finishReason=${finishReason}; messageKeys=${messageKeys}; hasRefusal=${Boolean(refusal)}; hasReasoning=${Boolean(reasoning)}`;
 }
 
+function getPrimaryChoiceMetadata(response: unknown): {
+  finishReason: string;
+  hasReasoning: boolean;
+} {
+  const responseObject = getObject(response);
+
+  if (!responseObject) {
+    return {
+      finishReason: 'unknown',
+      hasReasoning: false,
+    };
+  }
+
+  const choices = Array.isArray(responseObject.choices) ? responseObject.choices : [];
+  const firstChoice = choices.length > 0 ? getObject(choices[0]) : null;
+  const messageObject = firstChoice ? getObject(firstChoice.message) : null;
+
+  const finishReason =
+    typeof firstChoice?.finishReason === 'string'
+      ? firstChoice.finishReason
+      : typeof firstChoice?.finish_reason === 'string'
+        ? String(firstChoice.finish_reason)
+        : 'unknown';
+
+  return {
+    finishReason,
+    hasReasoning: Boolean(messageObject && typeof messageObject.reasoning === 'string'),
+  };
+}
+
 export interface LLMResponse {
   content: string;
   model: string;
@@ -378,7 +408,10 @@ export class OpenRouterService {
 
     return (
       error instanceof AppError &&
-      (error.code === 'LLM_EMPTY_RESPONSE' || error.code === 'LLM_TIMEOUT')
+      (
+        error.code === 'LLM_EMPTY_RESPONSE' ||
+        error.code === 'LLM_TIMEOUT'
+      )
     );
   }
 
@@ -409,7 +442,12 @@ export class OpenRouterService {
   private shouldUseFallback(error: unknown): boolean {
     if (
       error instanceof AppError &&
-      (error.code === 'LLM_EMPTY_RESPONSE' || error.code === 'LLM_TIMEOUT')
+      (
+        error.code === 'LLM_EMPTY_RESPONSE' ||
+        error.code === 'LLM_TIMEOUT' ||
+        error.code === 'LLM_EMPTY_RESPONSE_LENGTH' ||
+        error.code === 'LLM_EMPTY_RESPONSE_REASONING_LENGTH'
+      )
     ) {
       return true;
     }
@@ -546,7 +584,7 @@ export class OpenRouterService {
                       partition: openRouterConfig.providerSort.partition,
                     },
                   },
-                  maxTokens: 1000,
+                  maxTokens: env.OPENROUTER_MAX_TOKENS,
                   temperature: 0.7,
                 },
               },
@@ -557,9 +595,21 @@ export class OpenRouterService {
 
             const choice = response.choices[0];
             const summaryContent = extractSummaryTextFromResponse(response);
+            const choiceMetadata = getPrimaryChoiceMetadata(response);
 
             if (!choice || !summaryContent) {
               console.warn(`OpenRouter: resposta sem texto extraível. ${getEmptyResponseDiagnostics(response)}`);
+
+              if (choiceMetadata.finishReason === 'length') {
+                throw new AppError(
+                  'Resposta truncada do provedor de IA (limite de tokens atingido)',
+                  413,
+                  choiceMetadata.hasReasoning
+                    ? 'LLM_EMPTY_RESPONSE_REASONING_LENGTH'
+                    : 'LLM_EMPTY_RESPONSE_LENGTH'
+                );
+              }
+
               throw new AppError('Resposta vazia do provedor de IA', 502, 'LLM_EMPTY_RESPONSE');
             }
 

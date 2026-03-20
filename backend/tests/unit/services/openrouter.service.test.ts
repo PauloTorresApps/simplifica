@@ -35,6 +35,7 @@ vi.mock('../../../src/config/env', () => ({
   env: {
     SUMMARY_MAX_CONTENT_CHARS: 120000,
     OPENROUTER_RATE_LIMIT_DELAY_MS: 12000,
+    OPENROUTER_MAX_TOKENS: 5000,
   },
 }));
 

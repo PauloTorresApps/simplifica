@@ -30,7 +30,7 @@ const envSchema = z.object({
 
   // OpenRouter
   OPENROUTER_API_KEY: z.string().startsWith('sk-or-'),
-  OPENROUTER_MODEL: z.string().default('openrouter/hunter-alpha'),
+  OPENROUTER_MODEL: z.string().default('xiaomi/mimo-v2-pro'),
   OPENROUTER_FALLBACK_MODEL: z.string().default('openai/gpt-oss-120b:free'),
   OPENROUTER_PROVIDER_SORT_BY: z
     .enum(['price', 'throughput', 'latency'])
@@ -45,6 +45,7 @@ const envSchema = z.object({
   PDF_DOWNLOAD_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   OPENROUTER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   OPENROUTER_RATE_LIMIT_DELAY_MS: z.coerce.number().int().min(1000).max(300000).default(10000),
+  OPENROUTER_MAX_TOKENS: z.coerce.number().int().min(256).max(12000).default(5000),
   SUMMARY_MAX_CONTENT_CHARS: z.coerce.number().int().min(1000).max(500000).default(120000),
 
   // App
