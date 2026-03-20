@@ -32,6 +32,10 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().startsWith('sk-or-'),
   OPENROUTER_MODEL: z.string().default('openrouter/hunter-alpha'),
   OPENROUTER_FALLBACK_MODEL: z.string().default('openai/gpt-oss-120b:free'),
+  OPENROUTER_PROVIDER_SORT_BY: z
+    .enum(['price', 'throughput', 'latency'])
+    .default('throughput'),
+  OPENROUTER_PROVIDER_SORT_PARTITION: z.enum(['model', 'none']).default('model'),
 
   // DOE-TO API
   DOE_API_URL: z.string().url().default('https://diariooficial.to.gov.br/api.json'),

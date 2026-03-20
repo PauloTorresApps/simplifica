@@ -1,17 +1,32 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import axios from 'axios';
 import { OpenRouterService } from '../../../src/modules/summaries/openrouter.service';
 import { AppError } from '../../../src/shared/errors/app-error';
 
+const { chatSendMock } = vi.hoisted(() => ({
+  chatSendMock: vi.fn(),
+}));
+
+vi.mock('@openrouter/sdk', () => ({
+  OpenRouter: vi.fn(function OpenRouterMock(this: { chat: { send: typeof chatSendMock } }) {
+    this.chat = {
+      send: chatSendMock,
+    };
+  }),
+}));
+
 vi.mock('../../../src/config/openrouter', () => ({
   openRouterConfig: {
+    apiKey: 'test-key',
     model: 'primary-model',
     fallbackModel: 'openai/gpt-oss-120b:free,openrouter/auto',
+    timeoutMs: 30000,
     baseUrl: 'https://openrouter.ai/api/v1',
-    buildHeaders: () => ({
-      Authorization: 'Bearer test-key',
-      'Content-Type': 'application/json',
-    }),
+    httpReferer: 'https://simplifica.app',
+    title: 'Simplifica - Tradutor de Juridiquês',
+    providerSort: {
+      by: 'throughput',
+      partition: 'model',
+    },
   },
   SUMMARY_SYSTEM_PROMPT: 'Summarize legal text.',
 }));
@@ -19,61 +34,53 @@ vi.mock('../../../src/config/openrouter', () => ({
 vi.mock('../../../src/config/env', () => ({
   env: {
     SUMMARY_MAX_CONTENT_CHARS: 120000,
-    OPENROUTER_TIMEOUT_MS: 30000,
   },
 }));
 
-vi.mock('axios', () => ({
-  default: {
-    post: vi.fn(),
-    isAxiosError: (error: unknown) =>
-      Boolean((error as { isAxiosError?: boolean } | undefined)?.isAxiosError),
-  },
-}));
-
-function makeAxiosError(status: number, message: string) {
+function makeProviderError(statusCode: number, message: string) {
   return {
-    isAxiosError: true,
-    response: {
-      status,
-      data: {
-        error: {
-          message,
-        },
-      },
+    statusCode,
+    error: {
+      message,
     },
+    body: JSON.stringify({
+      error: {
+        message,
+      },
+    }),
   };
 }
 
 describe('OpenRouterService', () => {
-  const mockedAxios = vi.mocked(axios, true);
   let service: OpenRouterService;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    chatSendMock.mockReset();
     service = new OpenRouterService();
   });
 
   it('falls back to openai/gpt-oss-120b:free when primary model is invalid', async () => {
-    mockedAxios.post
-      .mockRejectedValueOnce(makeAxiosError(400, 'primary-model is not a valid model ID'))
+    chatSendMock
+      .mockRejectedValueOnce(makeProviderError(400, 'primary-model is not a valid model ID'))
       .mockResolvedValueOnce({
-        data: {
-          model: 'openai/gpt-oss-120b:free',
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: '<article><p>ok</p></article>',
-              },
-              finish_reason: 'stop',
+        id: 'chatcmpl-1',
+        object: 'chat.completion',
+        created: 1710000000,
+        model: 'openai/gpt-oss-120b:free',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: '<article><p>ok</p></article>',
             },
-          ],
-          usage: {
-            prompt_tokens: 10,
-            completion_tokens: 20,
-            total_tokens: 30,
           },
+        ],
+        usage: {
+          promptTokens: 10,
+          completionTokens: 20,
+          totalTokens: 30,
         },
       });
 
@@ -82,19 +89,32 @@ describe('OpenRouterService', () => {
       legalTitle: 'Teste fallback',
     });
 
-    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
-    expect(mockedAxios.post.mock.calls[0][1]).toMatchObject({ model: 'primary-model' });
-    expect(mockedAxios.post.mock.calls[1][1]).toMatchObject({
-      model: 'openai/gpt-oss-120b:free',
+    expect(chatSendMock).toHaveBeenCalledTimes(2);
+    expect(chatSendMock.mock.calls[0][0]).toMatchObject({
+      chatGenerationParams: {
+        model: 'primary-model',
+        models: ['primary-model', 'openai/gpt-oss-120b:free', 'openrouter/auto'],
+        provider: {
+          sort: {
+            by: 'throughput',
+            partition: 'model',
+          },
+        },
+      },
+    });
+    expect(chatSendMock.mock.calls[0][1]).toMatchObject({ timeoutMs: 30000 });
+    expect(chatSendMock.mock.calls[1][0]).toMatchObject({
+      chatGenerationParams: {
+        model: 'openai/gpt-oss-120b:free',
+        models: ['openai/gpt-oss-120b:free', 'openrouter/auto'],
+      },
     });
     expect(result.model).toBe('openai/gpt-oss-120b:free');
     expect(result.tokensUsed).toBe(30);
   });
 
   it('does not use fallback for 400 unrelated to model validity', async () => {
-    mockedAxios.post.mockRejectedValueOnce(
-      makeAxiosError(400, 'Missing required parameter: messages')
-    );
+    chatSendMock.mockRejectedValueOnce(makeProviderError(400, 'Missing required parameter: messages'));
 
     await expect(
       service.generateSummary('Texto legal para teste', {
@@ -103,31 +123,32 @@ describe('OpenRouterService', () => {
       })
     ).rejects.toBeInstanceOf(AppError);
 
-    expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+    expect(chatSendMock).toHaveBeenCalledTimes(1);
   });
 
   it('retries transient 429 errors before succeeding on the same model', async () => {
     vi.useFakeTimers();
 
-    mockedAxios.post
-      .mockRejectedValueOnce(makeAxiosError(429, 'Provider returned error'))
+    chatSendMock
+      .mockRejectedValueOnce(makeProviderError(429, 'Provider returned error'))
       .mockResolvedValueOnce({
-        data: {
-          model: 'primary-model',
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: '<article><p>retry-ok</p></article>',
-              },
-              finish_reason: 'stop',
+        id: 'chatcmpl-2',
+        object: 'chat.completion',
+        created: 1710000001,
+        model: 'primary-model',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: '<article><p>retry-ok</p></article>',
             },
-          ],
-          usage: {
-            prompt_tokens: 12,
-            completion_tokens: 22,
-            total_tokens: 34,
           },
+        ],
+        usage: {
+          promptTokens: 12,
+          completionTokens: 22,
+          totalTokens: 34,
         },
       });
 
@@ -140,9 +161,13 @@ describe('OpenRouterService', () => {
     const result = await resultPromise;
     vi.useRealTimers();
 
-    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
-    expect(mockedAxios.post.mock.calls[0][1]).toMatchObject({ model: 'primary-model' });
-    expect(mockedAxios.post.mock.calls[1][1]).toMatchObject({ model: 'primary-model' });
+    expect(chatSendMock).toHaveBeenCalledTimes(2);
+    expect(chatSendMock.mock.calls[0][0]).toMatchObject({
+      chatGenerationParams: { model: 'primary-model' },
+    });
+    expect(chatSendMock.mock.calls[1][0]).toMatchObject({
+      chatGenerationParams: { model: 'primary-model' },
+    });
     expect(result.model).toBe('primary-model');
     expect(result.tokensUsed).toBe(34);
   });

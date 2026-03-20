@@ -4,14 +4,14 @@ export const openRouterConfig = {
   apiKey: env.OPENROUTER_API_KEY,
   model: env.OPENROUTER_MODEL,
   fallbackModel: env.OPENROUTER_FALLBACK_MODEL,
+  timeoutMs: env.OPENROUTER_TIMEOUT_MS,
   baseUrl: 'https://openrouter.ai/api/v1',
-  buildHeaders: () => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
-    'HTTP-Referer': 'https://simplifica.app',
-    'X-OpenRouter-Title': 'Simplifica - Tradutor de Juridiquês',
-    'X-Title': 'Simplifica - Tradutor de Juridiquês',
-  }),
+  httpReferer: 'https://simplifica.app',
+  title: 'Simplifica - Tradutor de Juridiquês',
+  providerSort: {
+    by: env.OPENROUTER_PROVIDER_SORT_BY,
+    partition: env.OPENROUTER_PROVIDER_SORT_PARTITION,
+  },
 };
 
 export const SUMMARY_SYSTEM_PROMPT = `Persona: Você é um Especialista em Comunicação Governamental e Linguagem Simples. Sua missão é traduzir atos oficiais do Estado do Tocantins para que um cidadão que não estudou direito consiga entender exatamente como a vida dele muda com aquela publicação.
