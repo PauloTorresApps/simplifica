@@ -131,6 +131,7 @@ JWT_EXPIRES_IN=7d
 # OpenRouter (obtenha em https://openrouter.ai)
 OPENROUTER_API_KEY=sk-or-v1-sua-api-key-aqui
 OPENROUTER_MODEL=openrouter/hunter-alpha
+OPENROUTER_FALLBACK_MODEL=openrouter/auto,openai/gpt-oss-120b:free,nvidia/nemotron-3-super-120b-a12b:free
 
 # Recuperação de senha e SMTP (MailHog)
 PASSWORD_RESET_TOKEN_EXPIRY_MINUTES=10

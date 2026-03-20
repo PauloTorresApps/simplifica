@@ -3,11 +3,13 @@ import { env } from './env';
 export const openRouterConfig = {
   apiKey: env.OPENROUTER_API_KEY,
   model: env.OPENROUTER_MODEL,
+  fallbackModel: env.OPENROUTER_FALLBACK_MODEL,
   baseUrl: 'https://openrouter.ai/api/v1',
   buildHeaders: () => ({
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
     'HTTP-Referer': 'https://simplifica.app',
+    'X-OpenRouter-Title': 'Simplifica - Tradutor de Juridiquês',
     'X-Title': 'Simplifica - Tradutor de Juridiquês',
   }),
 };
