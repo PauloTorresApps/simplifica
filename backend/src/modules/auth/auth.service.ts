@@ -1,15 +1,43 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../../config/database';
-import { hashPassword, comparePassword } from '../../shared/utils/hash';
-import { ConflictError, UnauthorizedError, NotFoundError } from '../../shared/errors/app-error';
-import { RegisterInput, LoginInput } from './auth.schema';
+import {
+  hashPassword,
+  comparePassword,
+  generateSecureToken,
+  hashToken,
+} from '../../shared/utils/hash';
+import {
+  ConflictError,
+  UnauthorizedError,
+  NotFoundError,
+} from '../../shared/errors/app-error';
+import {
+  RegisterInput,
+  LoginInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+} from './auth.schema';
 import { JwtPayload } from '../../shared/types';
 import { env } from '../../config/env';
+import { EmailService } from '../../shared/services/email.service';
 
 const DUMMY_HASH_PROMISE = hashPassword('invalid-password-for-timing-protection');
+const GENERIC_FORGOT_PASSWORD_MESSAGE =
+  'Se o email estiver cadastrado, enviaremos um link para redefinição de senha.';
 
 export class AuthService {
-  constructor(private app: FastifyInstance) {}
+  constructor(
+    private app: FastifyInstance,
+    private emailService?: EmailService
+  ) {}
+
+  private getEmailService(): EmailService {
+    if (!this.emailService) {
+      this.emailService = new EmailService();
+    }
+
+    return this.emailService;
+  }
 
   async register(data: RegisterInput) {
     // Check if user already exists
@@ -96,5 +124,112 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async requestPasswordReset(data: ForgotPasswordInput) {
+    const user = await prisma.user.findUnique({
+      where: { email: data.email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    });
+
+    if (!user) {
+      await DUMMY_HASH_PROMISE;
+      return { message: GENERIC_FORGOT_PASSWORD_MESSAGE };
+    }
+
+    const token = generateSecureToken();
+    const tokenHash = hashToken(token);
+    const now = new Date();
+    const expiresAt = new Date(
+      now.getTime() + env.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES * 60 * 1000
+    );
+
+    await prisma.$transaction([
+      prisma.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+        },
+        data: {
+          usedAt: now,
+        },
+      }),
+      prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+        },
+      }),
+    ]);
+
+    const resetUrl = new URL(env.PASSWORD_RESET_URL);
+    resetUrl.searchParams.set('token', token);
+
+    try {
+      await this.getEmailService().sendEmail({
+        to: user.email,
+        subject: 'Recuperação de senha - Simplifica',
+        html: `<p>Olá, ${user.name}.</p>
+<p>Recebemos uma solicitação para redefinir sua senha no Simplifica.</p>
+<p><a href="${resetUrl.toString()}">Clique aqui para redefinir sua senha</a></p>
+<p>Este link expira em ${env.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES} minutos.</p>
+<p>Se você não solicitou esta alteração, ignore este e-mail.</p>`,
+        text: `Olá, ${user.name}.\n\nRecebemos uma solicitação para redefinir sua senha no Simplifica.\nAcesse o link para redefinir sua senha: ${resetUrl.toString()}\n\nEste link expira em ${env.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES} minutos.\nSe você não solicitou esta alteração, ignore este e-mail.`,
+      });
+    } catch (error) {
+      this.app.log.error({ error }, 'Falha ao enviar e-mail de recuperação de senha');
+    }
+
+    return { message: GENERIC_FORGOT_PASSWORD_MESSAGE };
+  }
+
+  async resetPassword(data: ResetPasswordInput) {
+    const tokenHash = hashToken(data.token);
+    const now = new Date();
+
+    const passwordResetToken = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      select: {
+        userId: true,
+        expiresAt: true,
+        usedAt: true,
+      },
+    });
+
+    const isInvalidToken =
+      !passwordResetToken ||
+      passwordResetToken.usedAt !== null ||
+      passwordResetToken.expiresAt.getTime() < now.getTime();
+
+    if (isInvalidToken) {
+      throw new UnauthorizedError('Token de redefinição inválido ou expirado');
+    }
+
+    const hashedPassword = await hashPassword(data.password);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: passwordResetToken.userId },
+        data: {
+          password: hashedPassword,
+        },
+      }),
+      prisma.passwordResetToken.updateMany({
+        where: {
+          userId: passwordResetToken.userId,
+          usedAt: null,
+        },
+        data: {
+          usedAt: now,
+        },
+      }),
+    ]);
+
+    return { message: 'Senha redefinida com sucesso' };
   }
 }

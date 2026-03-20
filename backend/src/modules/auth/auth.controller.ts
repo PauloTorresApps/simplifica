@@ -1,6 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
-import { registerSchema, loginSchema } from './auth.schema';
+import {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from './auth.schema';
 import { ApiResponse } from '../../shared/types';
 import { env } from '../../config/env';
 
@@ -106,6 +111,34 @@ export class AuthController {
     const response: ApiResponse<typeof user> = {
       success: true,
       data: user,
+    };
+
+    return reply.status(200).send(response);
+  }
+
+  async forgotPassword(request: FastifyRequest, reply: FastifyReply) {
+    const data = forgotPasswordSchema.parse(request.body);
+    const result = await this.authService.requestPasswordReset(data);
+
+    const response: ApiResponse<{ message: string }> = {
+      success: true,
+      data: {
+        message: result.message,
+      },
+    };
+
+    return reply.status(200).send(response);
+  }
+
+  async resetPassword(request: FastifyRequest, reply: FastifyReply) {
+    const data = resetPasswordSchema.parse(request.body);
+    const result = await this.authService.resetPassword(data);
+
+    const response: ApiResponse<{ message: string }> = {
+      success: true,
+      data: {
+        message: result.message,
+      },
     };
 
     return reply.status(200).send(response);

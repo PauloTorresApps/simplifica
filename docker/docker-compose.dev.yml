@@ -20,6 +20,15 @@ services:
     networks:
       - simplifica-network-dev
 
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: simplifica-mailhog-dev
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - simplifica-network-dev
+
 volumes:
   postgres_data_dev:
 

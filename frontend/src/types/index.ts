@@ -75,6 +75,19 @@ export interface RegisterInput {
   name: string;
 }
 
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  password: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
 export interface PublicationsFilters {
   page?: number;
   limit?: number;

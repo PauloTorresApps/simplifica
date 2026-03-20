@@ -13,14 +13,28 @@ const envSchema = z.object({
       'JWT_SECRET inseguro: use uma chave aleatória forte'
     ),
   JWT_EXPIRES_IN: z.string().default('7d'),
+  PASSWORD_RESET_TOKEN_EXPIRY_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
+  PASSWORD_RESET_URL: z.string().url().default('http://localhost:3000/reset-password'),
+
+  // SMTP
+  SMTP_HOST: z.string().default('localhost'),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASSWORD: z.string().default(''),
+  SMTP_FROM_EMAIL: z.string().email().default('noreply@simplifica.local'),
+  SMTP_FROM_NAME: z.string().default('Simplifica'),
 
   // OpenRouter
   OPENROUTER_API_KEY: z.string().startsWith('sk-or-'),
-  OPENROUTER_MODEL: z.string().default('anthropic/claude-3.5-sonnet'),
+  OPENROUTER_MODEL: z.string().default('openrouter/hunter-alpha'),
 
   // DOE-TO API
   DOE_API_URL: z.string().url().default('https://diariooficial.to.gov.br/api.json'),
-  DOE_ALLOWED_HOSTS: z.string().default('diariooficial.to.gov.br'),
+  DOE_ALLOWED_HOSTS: z.string().default('diariooficial.to.gov.br,doe.to.gov.br'),
   DOE_SYNC_CRON: z.string().default('0 8 * * 1-5'),
   HTTP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(15000),
   PDF_DOWNLOAD_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),

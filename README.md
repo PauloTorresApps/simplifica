@@ -60,6 +60,7 @@ O Simplifica consome publicações do Diário Oficial do Tocantins via API, util
 
 - **Containerização**: Docker + Docker Compose
 - **LLM**: OpenRouter (Claude 3.5 Sonnet)
+- **E-mail (desenvolvimento)**: MailHog
 
 ## 📁 Estrutura do Projeto
 
@@ -129,7 +130,18 @@ JWT_EXPIRES_IN=7d
 
 # OpenRouter (obtenha em https://openrouter.ai)
 OPENROUTER_API_KEY=sk-or-v1-sua-api-key-aqui
-OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
+OPENROUTER_MODEL=openrouter/hunter-alpha
+
+# Recuperação de senha e SMTP (MailHog)
+PASSWORD_RESET_TOKEN_EXPIRY_MINUTES=10
+PASSWORD_RESET_URL=http://localhost:3000/reset-password
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=noreply@simplifica.local
+SMTP_FROM_NAME=Simplifica
 
 # DOE-TO API
 DOE_API_URL=https://diariooficial.to.gov.br/api.json
@@ -160,6 +172,17 @@ docker compose exec backend npx prisma migrate dev
 - **Backend API**: [http://localhost:3333](http://localhost:3333)
 - **Documentação Swagger**: [http://localhost:3333/docs](http://localhost:3333/docs)
 - **Health Check**: [http://localhost:3333/health](http://localhost:3333/health)
+- **MailHog (Inbox de e-mails)**: [http://localhost:8025](http://localhost:8025)
+
+### Testar envio e recebimento de e-mails (MailHog)
+
+Com o Docker em execução, o MailHog captura todos os e-mails enviados pelo backend via SMTP de desenvolvimento.
+
+1. Acesse a interface do MailHog em [http://localhost:8025](http://localhost:8025)
+2. Solicite recuperação de senha na aplicação
+3. Verifique o e-mail recebido no MailHog e clique no link de redefinição
+
+Observação: se o backend estiver rodando em container (`docker compose`), o host SMTP interno é `mailhog` (já configurado no `docker-compose.yml`). Se estiver rodando localmente (`npm run dev`), use `localhost:1025` no `backend/.env`.
 
 ## 📚 API Endpoints
 

@@ -25,8 +25,12 @@ class ApiService {
         const status = error.response?.status;
         const requestUrl = String(error.config?.url || '');
         const isSessionProbe = requestUrl.includes('/api/auth/me');
+        const currentPath = window.location.pathname;
         const isPublicAuthPage =
-          window.location.pathname === '/login' || window.location.pathname === '/register';
+          currentPath === '/login' ||
+          currentPath === '/register' ||
+          currentPath === '/forgot-password' ||
+          currentPath === '/reset-password';
 
         if (status === 401 && !isSessionProbe && !isPublicAuthPage) {
           window.location.href = '/login';

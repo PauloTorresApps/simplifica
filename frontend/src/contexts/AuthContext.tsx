@@ -9,6 +9,8 @@ interface AuthContextData {
   login: (data: LoginInput) => Promise<void>;
   register: (data: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<string>;
+  resetPassword: (token: string, password: string) => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -55,6 +57,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   }
 
+  async function requestPasswordReset(email: string) {
+    return authService.forgotPassword({ email });
+  }
+
+  async function resetPassword(token: string, password: string) {
+    return authService.resetPassword({ token, password });
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -64,6 +74,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         login,
         register,
         logout,
+        requestPasswordReset,
+        resetPassword,
       }}
     >
       {children}

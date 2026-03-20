@@ -1,7 +1,6 @@
 import axios from 'axios';
 import cron from 'node-cron';
 import { env } from '../config/env';
-import { prisma } from '../config/database';
 import { OpenRouterService } from '../modules/summaries/openrouter.service';
 import { SummariesRepository } from '../modules/summaries/summaries.repository';
 import { PublicationsRepository } from '../modules/publications/publications.repository';
@@ -70,43 +69,55 @@ export class FetchPublicationsJob {
       console.log(`📥 ${publications.length} publicações encontradas na API`);
 
       let newCount = 0;
+      let retriedCount = 0;
       let errorCount = 0;
 
       for (const doePub of publications) {
         try {
-          // Check if publication already exists
-          const existing = await this.publicationsRepository.findByDoeId(
-            doePub.id.toString()
-          );
+          const existing = await this.publicationsRepository.findByDoeId(doePub.id.toString());
 
-          if (existing) {
-            continue; // Skip existing publications
+          let publication = existing;
+          let isRetry = false;
+
+          if (!publication) {
+            console.log(`📄 Processando nova publicação: Edição ${doePub.edicao}`);
+
+            publication = await this.publicationsRepository.create({
+              doeId: doePub.id.toString(),
+              edition: doePub.edicao,
+              date: new Date(doePub.data_iso8601),
+              pages: doePub.paginas,
+              fileSize: doePub.tamanho,
+              downloadUrl: doePub.link,
+              imageUrl: doePub.imagem,
+              isSupplement: doePub.suplemento,
+            });
+
+            newCount++;
+          } else {
+            if (publication.summaries.length > 0) {
+              continue;
+            }
+
+            isRetry = true;
+            console.log(`🔁 Reprocessando edição sem resumo: ${doePub.edicao}`);
           }
-
-          console.log(`📄 Processando nova publicação: Edição ${doePub.edicao}`);
-
-          // Create publication
-          const publication = await this.publicationsRepository.create({
-            doeId: doePub.id.toString(),
-            edition: doePub.edicao,
-            date: new Date(doePub.data_iso8601),
-            pages: doePub.paginas,
-            fileSize: doePub.tamanho,
-            downloadUrl: doePub.link,
-            imageUrl: doePub.imagem,
-            isSupplement: doePub.suplemento,
-          });
 
           // Try to download and extract PDF content
           try {
-            const pdfContent = await this.downloadAndExtractPdf(doePub.link);
+            let pdfContent = publication.rawContent;
+
+            if (!pdfContent) {
+              pdfContent = await this.downloadAndExtractPdf(doePub.link);
+            }
 
             if (pdfContent) {
-              // Update publication with raw content
-              await prisma.publication.update({
-                where: { id: publication.id },
-                data: { rawContent: pdfContent },
-              });
+              if (!publication.rawContent) {
+                // Save extracted content only when publication has no previous raw content
+                publication = await this.publicationsRepository.update(publication.id, {
+                  rawContent: pdfContent,
+                });
+              }
 
                 const legalActs = parseLegalActs(pdfContent);
 
@@ -149,19 +160,23 @@ export class FetchPublicationsJob {
                 console.log(
                   `✅ ${generatedCount} resumo(s) de decretos/leis/medidas provisórias gerados para edição ${doePub.edicao}`
                 );
+
+                if (isRetry) {
+                  retriedCount++;
+                }
+            } else {
+              console.log(`ℹ️ Edição ${doePub.edicao} sem conteúdo PDF disponível para análise`);
             }
           } catch (pdfError) {
             console.error(`⚠️ Erro ao processar PDF da edição ${doePub.edicao}:`, pdfError);
           }
-
-          newCount++;
         } catch (error) {
           errorCount++;
           console.error(`❌ Erro ao processar publicação ${doePub.id}:`, error);
         }
       }
 
-      console.log(`✅ Sincronização concluída: ${newCount} novas, ${errorCount} erros`);
+      console.log(`✅ Sincronização concluída: ${newCount} novas, ${retriedCount} reprocessadas, ${errorCount} erros`);
     } catch (error) {
       console.error('❌ Erro na sincronização com DOE-TO:', error);
     } finally {

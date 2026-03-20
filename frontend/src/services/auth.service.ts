@@ -1,5 +1,14 @@
 import { api } from './api';
-import { ApiResponse, AuthResponse, User, LoginInput, RegisterInput } from '../types';
+import {
+  ApiResponse,
+  AuthResponse,
+  User,
+  LoginInput,
+  RegisterInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+  MessageResponse,
+} from '../types';
 import { getPublicApiResponseMessage, getPublicErrorMessage } from '../utils/public-error';
 
 export const authService = {
@@ -47,5 +56,42 @@ export const authService = {
 
   async logout(): Promise<void> {
     await api.post('/api/auth/logout');
+  },
+
+  async forgotPassword(data: ForgotPasswordInput): Promise<string> {
+    try {
+      const response = await api.post<ApiResponse<MessageResponse>>('/api/auth/forgot-password', data);
+
+      if (!response.data.success || !response.data.data) {
+        throw new Error(
+          getPublicApiResponseMessage(
+            response.data,
+            'Nao foi possivel solicitar a recuperacao de senha.'
+          )
+        );
+      }
+
+      return response.data.data.message;
+    } catch (error) {
+      throw new Error(
+        getPublicErrorMessage(error, 'Nao foi possivel solicitar a recuperacao de senha.')
+      );
+    }
+  },
+
+  async resetPassword(data: ResetPasswordInput): Promise<string> {
+    try {
+      const response = await api.post<ApiResponse<MessageResponse>>('/api/auth/reset-password', data);
+
+      if (!response.data.success || !response.data.data) {
+        throw new Error(
+          getPublicApiResponseMessage(response.data, 'Nao foi possivel redefinir a senha.')
+        );
+      }
+
+      return response.data.data.message;
+    } catch (error) {
+      throw new Error(getPublicErrorMessage(error, 'Nao foi possivel redefinir a senha.'));
+    }
   },
 };

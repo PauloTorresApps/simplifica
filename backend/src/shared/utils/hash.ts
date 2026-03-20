@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 
 const SALT_ROUNDS = 10;
 
@@ -11,4 +12,12 @@ export async function comparePassword(
   hash: string
 ): Promise<boolean> {
   return bcrypt.compare(password, hash);
+}
+
+export function generateSecureToken(sizeBytes: number = 32): string {
+  return crypto.randomBytes(sizeBytes).toString('hex');
+}
+
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }

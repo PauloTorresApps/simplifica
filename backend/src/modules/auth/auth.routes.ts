@@ -79,6 +79,55 @@ export async function authRoutes(app: FastifyInstance) {
     authController.login.bind(authController)
   );
 
+  app.post(
+    '/forgot-password',
+    {
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: '15 minutes',
+        },
+      },
+      schema: {
+        description: 'Solicitar recuperação de senha',
+        tags: ['Auth'],
+        body: {
+          type: 'object',
+          required: ['email'],
+          properties: {
+            email: { type: 'string', format: 'email' },
+          },
+        },
+      },
+    },
+    authController.forgotPassword.bind(authController)
+  );
+
+  app.post(
+    '/reset-password',
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '15 minutes',
+        },
+      },
+      schema: {
+        description: 'Redefinir senha com token de recuperação',
+        tags: ['Auth'],
+        body: {
+          type: 'object',
+          required: ['token', 'password'],
+          properties: {
+            token: { type: 'string', minLength: 32 },
+            password: { type: 'string', minLength: 8 },
+          },
+        },
+      },
+    },
+    authController.resetPassword.bind(authController)
+  );
+
   app.get(
     '/me',
     {
