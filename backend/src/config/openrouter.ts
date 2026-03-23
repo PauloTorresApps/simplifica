@@ -56,9 +56,10 @@ Critérios de filtragem:
 7. Se o número e a data do ato aparecerem como referência histórica (ex.: "Decreto nº 8.474, de 22 de junho de 2015") sem comando normativo novo na edição atual, NÃO inclua.
 8. Para leis, trate como referência (e descarte) quando aparecer em construções como "na Lei", "da Lei" ou "segundo a Lei" sem comando normativo novo.
 9. Para leis, aceite com prioridade quando houver sinais como "Esta Lei entra em vigor", "Altera a Lei" ou "sanciono a seguinte Lei".
-10. Para decretos, trate como referência (e descarte) quando aparecer em construções como "do Decreto", "com o Decreto", "no Decreto" ou "pelo Decreto" sem comando normativo novo.
-11. Para decretos, aceite com prioridade quando houver sinais como "Este Decreto entra em vigor", "Revoga o Decreto" ou "deste Decreto".
-12. Regra de precedência: critérios de aceite têm mais peso que critérios de exclusão.
+10. Sempre que houver o trecho "Faço saber que a ASSEMBLEIA LEGISLATIVA ... decreta e eu sanciono a seguinte Lei:", trate como LEI NOVA publicada nesta edição.
+11. Para decretos, trate como referência (e descarte) quando aparecer em construções como "do Decreto", "com o Decreto", "no Decreto" ou "pelo Decreto" sem comando normativo novo.
+12. Para decretos, aceite com prioridade quando houver sinais como "Este Decreto entra em vigor", "Revoga o Decreto" ou "deste Decreto".
+13. Regra de precedência: critérios de aceite têm mais peso que critérios de exclusão.
 
 Critérios de exclusão:
 - Não extraia portarias administrativas/de pessoal/fiscalização.

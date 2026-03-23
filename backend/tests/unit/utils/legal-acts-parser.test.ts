@@ -44,6 +44,29 @@ Conteudo de outra secao sem o cabecalho alvo.
     expect(acts).toHaveLength(0);
   });
 
+  it('extracts sanctioned law from legislative section when present', () => {
+    const text = `
+ATOS LEGISLATIVOS
+
+LEI N 4953, DE 6 DE MARCO DE 2026
+Faço saber que a ASSEMBLEIA LEGISLATIVA DO ESTADO DO TOCANTINS decreta e eu sanciono a seguinte Lei:
+Art. 1 Fica autorizada doacao de imovel para finalidade social.
+Art. 2 Esta Lei entra em vigor na data de sua publicacao.
+
+ATOS DO CHEFE DO PODER EXECUTIVO
+DECRETO N 7124, DE 6 DE MARCO DE 2026
+O GOVERNADOR DO ESTADO DO TOCANTINS, no uso de suas atribuicoes, DECRETA:
+Art. 1 Fica instituido regulamento de execucao.
+`;
+
+    const acts = parseLegalActs(text);
+
+    expect(acts).toHaveLength(2);
+    expect(acts[0].type).toBe('LEI');
+    expect(acts[0].title.toUpperCase()).toContain('LEI N 4953');
+    expect(acts[1].type).toBe('DECRETO');
+  });
+
   it('ignores short chunks even inside executive section', () => {
     const text = `
 ATOS DO CHEFE DO PODER EXECUTIVO
@@ -148,6 +171,22 @@ Art. 2 Este Decreto entra em vigor na data de sua publicacao.
     expect(acts).toHaveLength(0);
   });
 
+  it('keeps law with normative structure even when mentions servidor in legal context', () => {
+    const text = `
+ATOS DO CHEFE DO PODER EXECUTIVO
+
+LEI N 8600, DE 22 DE MARCO DE 2026
+Art. 1 Fica instituida politica estadual de capacitacao de servidor publico.
+Art. 2 Esta Lei entra em vigor na data de sua publicacao.
+`;
+
+    const acts = parseLegalActs(text);
+
+    expect(acts).toHaveLength(1);
+    expect(acts[0].type).toBe('LEI');
+    expect(acts[0].title.toUpperCase()).toContain('LEI N 8600');
+  });
+
   it('keeps decree when acceptance signal is present even with reference phrases', () => {
     const text = `
 ATOS DO CHEFE DO PODER EXECUTIVO
@@ -230,7 +269,75 @@ Art. 3 Esta Lei entra em vigor na data de sua publicacao.
     expect(acts[0].title.toUpperCase()).toContain('LEI N 8002');
   });
 
-  it('ignores law chunk without explicit publication markers', () => {
+  it('always accepts law when Assembleia Legislativa sanction phrase is present', () => {
+    const text = `
+ATOS DO CHEFE DO PODER EXECUTIVO
+
+LEI N 8500, DE 22 DE MARCO DE 2026
+Faço saber que a ASSEMBLEIA LEGISLATIVA DO ESTADO
+DO TOCANTINS decreta e eu sanciono a seguinte Lei:
+Art. 1 Fica instituida a Politica Estadual de Apoio ao Empreendedor Popular.
+Art. 2 Esta Lei entra em vigor na data de sua publicacao.
+`;
+
+    const acts = parseLegalActs(text);
+
+    expect(acts).toHaveLength(1);
+    expect(acts[0].type).toBe('LEI');
+    expect(acts[0].title.toUpperCase()).toContain('LEI N 8500');
+  });
+
+  it('accepts sanctioned law phrase for another state assembly', () => {
+    const text = `
+ATOS LEGISLATIVOS
+
+LEI N 8601, DE 22 DE MARCO DE 2026
+Faço saber que a ASSEMBLEIA LEGISLATIVA DO ESTADO DE GOIAS decreta e eu sanciono a seguinte Lei:
+Art. 1 Fica instituida politica estadual de apoio ao empreendedorismo social.
+Art. 2 Esta Lei entra em vigor na data de sua publicacao.
+`;
+
+    const acts = parseLegalActs(text);
+
+    expect(acts).toHaveLength(1);
+    expect(acts[0].type).toBe('LEI');
+    expect(acts[0].title.toUpperCase()).toContain('LEI N 8601');
+  });
+
+  it('accepts law with sanction phrase variation using presente Lei', () => {
+    const text = `
+ATOS DO CHEFE DO PODER EXECUTIVO
+
+LEI N 8501, DE 22 DE MARCO DE 2026
+Faço saber que a ASSEMBLEIA LEGISLATIVA DO ESTADO DO TOCANTINS decreta e eu sanciono a presente Lei:
+Art. 1 Fica instituido cadastro estadual de apoio ao pequeno produtor.
+Art. 2 Esta Lei entra em vigor na data de sua publicacao.
+`;
+
+    const acts = parseLegalActs(text);
+
+    expect(acts).toHaveLength(1);
+    expect(acts[0].type).toBe('LEI');
+    expect(acts[0].title.toUpperCase()).toContain('LEI N 8501');
+  });
+
+  it('accepts short sanctioned law chunk', () => {
+    const text = `
+ATOS DO CHEFE DO PODER EXECUTIVO
+
+LEI N 8502, DE 22 DE MARCO DE 2026
+Faço saber que a ASSEMBLEIA LEGISLATIVA DO ESTADO DO TOCANTINS decreta e eu sanciono a seguinte Lei:
+Art. 1 Fica instituida medida de simplificacao administrativa.
+`;
+
+    const acts = parseLegalActs(text);
+
+    expect(acts).toHaveLength(1);
+    expect(acts[0].type).toBe('LEI');
+    expect(acts[0].title.toUpperCase()).toContain('LEI N 8502');
+  });
+
+  it('keeps law chunk with normative structure even without literal publication marker', () => {
     const text = `
 ATOS DO CHEFE DO PODER EXECUTIVO
 
@@ -246,7 +353,9 @@ Art. 6 As despesas correrao por conta de dotacao orcamentaria propria.
 
     const acts = parseLegalActs(text);
 
-    expect(acts).toHaveLength(0);
+    expect(acts).toHaveLength(1);
+    expect(acts[0].type).toBe('LEI');
+    expect(acts[0].title.toUpperCase()).toContain('LEI N 8010');
   });
 
   it('ignores referenced law header-like line inside decree content', () => {

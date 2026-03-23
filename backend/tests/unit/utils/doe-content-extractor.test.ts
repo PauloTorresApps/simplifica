@@ -43,7 +43,7 @@ describe('DOE Content Extractor', () => {
     const range = findExecutiveActsPageRange(pageTexts);
 
     expect(range).toEqual({
-      startPage: 2,
+      startPage: 1,
       endPage: 6,
       nextSectionStartPage: 7,
       nextSectionName: 'CASA CIVIL',
@@ -156,7 +156,7 @@ describe('DOE Content Extractor', () => {
     expect(content).not.toContain('PAGINA MUITO ALEM');
   });
 
-  it('should keep only executive content when legislative content appears before executive section', () => {
+  it('should keep legislative and executive acts when legislative section appears before executive section', () => {
     const pageTexts = [
       `SUMARIO\nATOS DO CHEFE DO PODER EXECUTIVO .......... 2\nCASA CIVIL .......... 4`,
       `ATOS LEGISLATIVOS\nLEI N 4953, DE 6 DE MARCO DE 2026\nTexto que nao pertence ao escopo executivo.`,
@@ -167,8 +167,7 @@ describe('DOE Content Extractor', () => {
     const content = extractExecutiveActsFromPageTexts(pageTexts);
 
     expect(content).toContain('DECRETO N 321');
-    expect(content).not.toContain('LEI N 4953');
-    expect(content).not.toContain('ATOS LEGISLATIVOS');
+    expect(content).toContain('LEI N 4953');
     expect(content).not.toContain('CASA CIVIL\nATO N 12');
   });
 

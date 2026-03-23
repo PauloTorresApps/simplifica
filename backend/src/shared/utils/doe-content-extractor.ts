@@ -28,6 +28,7 @@ interface PageData {
 
 const SUMARIO_HEADING_REGEX = /SUM[ÁA]RIO/i;
 const SUMARIO_ENTRY_REGEX = /^(.+?)[.\s]{2,}(\d{1,4})\s*$/gm;
+const LEGISLATIVE_ACTS_REGEX = /ATOS\s+LEGISLATIVOS/i;
 const EXECUTIVE_ACTS_REGEX = /ATOS\s+DO\s+CHEFE\s+DO\s+PODER\s+EXECUTIVO/i;
 const NEXT_SECTION_FALLBACK_REGEX =
   /(?:^|\n)\s*(SECRETARIA\b[^\n]*|CASA\s+CIVIL\b[^\n]*|GABINETE\b[^\n]*|DEFENSORIA\s+PUBLICA\b[^\n]*|MINISTERIO\s+PUBLICO\b[^\n]*|TRIBUNAL\b[^\n]*|ASSEMBLEIA\s+LEGISLATIVA\b[^\n]*|CONTROLADORIA\b[^\n]*|PROCURADORIA\b[^\n]*)/i;
@@ -53,15 +54,21 @@ function findSectionHeaderIndex(text: string, sectionName: string): number {
   return typeof match?.index === 'number' ? match.index : -1;
 }
 
-function findExecutiveSectionStartIndex(text: string): number {
-  const match = text.match(EXECUTIVE_ACTS_REGEX);
+function findTargetSectionStartIndex(text: string): number {
+  const executiveMatch = text.match(EXECUTIVE_ACTS_REGEX);
+  const legislativeMatch = text.match(LEGISLATIVE_ACTS_REGEX);
 
-  if (!match || typeof match.index !== 'number') {
+  const matchIndexes = [executiveMatch?.index, legislativeMatch?.index].filter(
+    (value): value is number => typeof value === 'number'
+  );
+
+  if (matchIndexes.length === 0) {
     return -1;
   }
 
-  const lineBreakIndex = text.indexOf('\n', match.index);
-  return lineBreakIndex >= 0 ? lineBreakIndex + 1 : match.index;
+  const firstMatchIndex = Math.min(...matchIndexes);
+  // Keep the section header itself so downstream parser can anchor on it.
+  return firstMatchIndex;
 }
 
 function findFallbackBoundaryIndex(text: string): number {
@@ -138,10 +145,12 @@ function findEarlyBoundaryInParts(
 }
 
 function extractBySectionHeuristic(pageTexts: string[]): string | null {
-  const startPageIndex = pageTexts.findIndex((pageText) => EXECUTIVE_ACTS_REGEX.test(pageText));
+  const startPageIndex = pageTexts.findIndex(
+    (pageText) => EXECUTIVE_ACTS_REGEX.test(pageText) || LEGISLATIVE_ACTS_REGEX.test(pageText)
+  );
 
   if (startPageIndex < 0) {
-    console.log('📋 Secao ATOS DO CHEFE DO PODER EXECUTIVO nao encontrada; descartando extracao fora de escopo');
+    console.log('📋 Secoes de atos (legislativos/executivo) nao encontradas; descartando extracao fora de escopo');
     return null;
   }
 
@@ -151,7 +160,7 @@ function extractBySectionHeuristic(pageTexts: string[]): string | null {
     let pageText = pageTexts[i];
 
     if (i === startPageIndex) {
-      const sectionStart = findExecutiveSectionStartIndex(pageText);
+      const sectionStart = findTargetSectionStartIndex(pageText);
       if (sectionStart >= 0) {
         pageText = pageText.slice(sectionStart).trim();
       }
@@ -217,12 +226,18 @@ export function findExecutiveActsPageRange(pageTexts: string[]): PageRange | nul
   }
 
   const executiveIdx = entries.findIndex((entry) => EXECUTIVE_ACTS_REGEX.test(entry.name));
+  const legislativeIdx = entries.findIndex((entry) => LEGISLATIVE_ACTS_REGEX.test(entry.name));
 
   if (executiveIdx === -1) {
     return null;
   }
 
-  const startPage = entries[executiveIdx].page;
+  const includeLegislativeStart =
+    legislativeIdx >= 0 && entries[legislativeIdx].page > 0 && entries[legislativeIdx].page <= entries[executiveIdx].page;
+
+  const startPage = includeLegislativeStart
+    ? entries[legislativeIdx].page
+    : entries[executiveIdx].page;
 
   if (startPage < 1) {
     return null;
@@ -282,14 +297,18 @@ export function extractExecutiveActsFromPageTexts(pageTexts: string[]): string |
 
   const firstExecutivePageOffset = (() => {
     const nonSummaryOffset = parts.findIndex(
-      (pageText) => EXECUTIVE_ACTS_REGEX.test(pageText) && !SUMARIO_HEADING_REGEX.test(pageText)
+      (pageText) =>
+        (EXECUTIVE_ACTS_REGEX.test(pageText) || LEGISLATIVE_ACTS_REGEX.test(pageText)) &&
+        !SUMARIO_HEADING_REGEX.test(pageText)
     );
 
     if (nonSummaryOffset >= 0) {
       return nonSummaryOffset;
     }
 
-    return parts.findIndex((pageText) => EXECUTIVE_ACTS_REGEX.test(pageText));
+    return parts.findIndex(
+      (pageText) => EXECUTIVE_ACTS_REGEX.test(pageText) || LEGISLATIVE_ACTS_REGEX.test(pageText)
+    );
   })();
 
   if (firstExecutivePageOffset > 0) {
@@ -302,7 +321,7 @@ export function extractExecutiveActsFromPageTexts(pageTexts: string[]): string |
   if (parts.length > 0) {
     const firstPartStart = SUMARIO_HEADING_REGEX.test(parts[0])
       ? -1
-      : findExecutiveSectionStartIndex(parts[0]);
+      : findTargetSectionStartIndex(parts[0]);
 
     if (firstPartStart >= 0) {
       parts[0] = parts[0].slice(firstPartStart).trim();

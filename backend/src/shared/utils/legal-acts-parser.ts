@@ -25,9 +25,10 @@ export interface LegalActsParseResult {
 const ACT_HEADER_REGEX =
   /(?:^|\n)\s*((?:DECRETO|LEI(?:\s+COMPLEMENTAR)?|MEDIDA\s+PROVIS[ÓO]RIA)(?:\s+N[º°oO\.]?\s*[\w.\/-]+)?[^\n]{0,180})\s*(?=\n|$)/gim;
 
-const MIN_CHUNK_SIZE_DEFAULT = 220;
+const MIN_CHUNK_SIZE_DEFAULT = 160;
 const MIN_CHUNK_SIZE_DECRETO = 60;
 const MIN_CHUNK_SIZE_MEDIDA_PROVISORIA = 140;
+const LEGISLATIVE_SECTION_TITLE = 'ATOS LEGISLATIVOS';
 const EXECUTIVE_SECTION_TITLE = 'ATOS DO CHEFE DO PODER EXECUTIVO';
 const NORMATIVE_SIGNAL_REGEX =
   /\b(ART\.?\s*1\b|DECRETA\s*:|FICA\s+(INSTITUID[AO]|CRIAD[AO]|ALTERAD[AO]|REVOGAD[AO]|APROVAD[AO])|REVOGA(?:M)?(?:-SE)?\b|ENTRA\s+EM\s+VIGOR\b|LEI\s+N[º°oO\.]?\s*\d|DECRETO\s+N[º°oO\.]?\s*\d|MEDIDA\s+PROVIS[ÓO]RIA\s+N[º°oO\.]?\s*\d)\b/i;
@@ -38,13 +39,15 @@ const LEI_REFERENCE_PHRASE_REGEX =
 const LEI_ACCEPTANCE_SIGNAL_REGEX =
   /\b(ESTA\s+LEI\s+ENTRA\s+EM\s+VIGOR|ALTERA\s+A\s+LEI|SANCIONO\s+A\s+SEGUINTE\s+LEI)\b/i;
 const LEI_PUBLICATION_SIGNAL_REGEX =
-  /\b(SANCIONO\s+A\s+SEGUINTE\s+LEI|FA[ÇC]O\s+SABER\s+QUE\s+A\s+ASSEMBLEIA\s+LEGISLATIVA|ASSEMBLEIA\s+LEGISLATIVA\s+DO\s+ESTADO\s+DO\s+TOCANTINS\s+DECRETA\s+E\s+EU\s+SANCIONO)\b/i;
+  /\b(SANCIONO\s+(?:A\s+SEGUINTE|A\s+PRESENTE|ESTA)\s+LEI|FA[ÇC]O\s+SABER\s+QUE\s+A\s+ASSEMBLEIA\s+LEGISLATIVA|ASSEMBLEIA\s+LEGISLATIVA(?:\s+DO\s+ESTADO\s+DE?\s+[A-ZÀ-Ýa-zà-ý\s]+)?\s+DECRETA\s+E\s+(?:EU\s+)?SANCIONO)\b/i;
+const LEI_ALWAYS_ACCEPT_SIGNAL_REGEX =
+  /FA[ÇC]O\s+SABER\s+QUE\s+A\s+ASSEMBLEIA\s+LEGISLATIVA(?:\s+DO\s+ESTADO\s+DE?\s+[A-ZÀ-Ýa-zà-ý\s]+)?\s+DECRETA\s+E\s+(?:EU\s+)?SANCIONO\s+(?:A\s+SEGUINTE|A\s+PRESENTE|ESTA)\s+LEI\s*:/i;
 const DECRETO_REFERENCE_PHRASE_REGEX =
   /\b(?:DO\s+DECRETO|COM\s+O\s+DECRETO|NO\s+DECRETO|PELO\s+DECRETO)\b/i;
 const DECRETO_ACCEPTANCE_SIGNAL_REGEX =
   /\b(ESTE\s+DECRETO\s+ENTRA\s+EM\s+VIGOR|REVOGA\s+O\s+DECRETO|DESTE\s+DECRETO)\b/i;
 const DECRETO_PUBLICATION_SIGNAL_REGEX =
-  /\b(O\s+GOVERNADOR\s+DO\s+ESTADO\s+DO\s+TOCANTINS|DECRETA\s*:)\b/i;
+  /\b(O\s+GOVERNADOR\s+DO\s+ESTADO(?:\s+DE\s+[A-ZÀ-Ýa-zà-ý\s]+)?|DECRETA\s*:)\b/i;
 const PERSONNEL_ACT_EXCLUSION_REGEX =
   /\b(NOMEIA|EXONERA|DESIGNA|DISPENSA|TORNA\s+SEM\s+EFEITO|CARGO\s+EM\s+COMISSAO|SERVIDOR(?:A)?(?:\s+PUBLICO)?)\b/i;
 const ACT_NUMBER_REGEX =
@@ -68,7 +71,12 @@ function normalizeWhitespace(text: string): string {
 }
 
 function sanitizeTitle(title: string): string {
-  return title.replace(/[ ]{2,}/g, ' ').trim();
+  return title
+    .replace(/[ ]{2,}/g, ' ')
+    // Normalize common OCR variants of act number marker (e.g. "N O", "N .", "N º").
+    .replace(/\bN\s*(?:[º°oO\.]|O)?\s*(?=\d)/g, 'N ')
+    .replace(/N\s{2,}/g, 'N ')
+    .trim();
 }
 
 function getActType(title: string): LegalActType {
@@ -87,11 +95,18 @@ function getActType(title: string): LegalActType {
 
 function extractExecutiveSection(text: string): string {
   const normalizedText = normalizeForSearch(text);
-  const sectionIndex = normalizedText.indexOf(EXECUTIVE_SECTION_TITLE);
+  const executiveSectionIndex = normalizedText.indexOf(EXECUTIVE_SECTION_TITLE);
+  const legislativeSectionIndex = normalizedText.indexOf(LEGISLATIVE_SECTION_TITLE);
 
-  if (sectionIndex < 0) {
+  const sectionIndexCandidates = [executiveSectionIndex, legislativeSectionIndex].filter(
+    (index) => index >= 0
+  );
+
+  if (sectionIndexCandidates.length === 0) {
     return '';
   }
+
+  const sectionIndex = Math.min(...sectionIndexCandidates);
 
   const sectionStart = text.indexOf('\n', sectionIndex);
   const contentStart = sectionStart >= 0 ? sectionStart + 1 : sectionIndex;
@@ -135,22 +150,37 @@ function isLikelyNormativeActChunk(title: string, fullChunk: string): boolean {
 
   const openingSlice = `${title}\n${fullChunk.slice(0, 1800)}`;
 
-  if (PERSONNEL_ACT_EXCLUSION_REGEX.test(openingSlice)) {
+  if (actType === 'DECRETO' && PERSONNEL_ACT_EXCLUSION_REGEX.test(openingSlice)) {
     return false;
   }
 
   if (actType === 'LEI') {
     const leiOpening = `${title}\n${fullChunk.slice(0, 1600)}`;
+    const hasLeiAlwaysAcceptSignal = LEI_ALWAYS_ACCEPT_SIGNAL_REGEX.test(leiOpening);
     const hasLeiAcceptanceSignal = LEI_ACCEPTANCE_SIGNAL_REGEX.test(leiOpening);
     const hasLeiPublicationSignal = LEI_PUBLICATION_SIGNAL_REGEX.test(leiOpening);
     const hasLeiReferencePhrase = LEI_REFERENCE_PHRASE_REGEX.test(leiOpening);
+    const hasLeiCoreStructure =
+      /\bART\.?\s*1\b/i.test(leiOpening) &&
+      /\b(ART\.?\s*2\b|ENTRA\s+EM\s+VIGOR|REVOGA(?:M)?(?:-SE)?|ALTERA\s+A\s+LEI)\b/i.test(
+        leiOpening
+      );
 
-    if (!hasLeiAcceptanceSignal && !hasLeiPublicationSignal) {
+    if (hasLeiAlwaysAcceptSignal) {
+      return true;
+    }
+
+    if (!hasLeiAcceptanceSignal && !hasLeiPublicationSignal && !hasLeiCoreStructure) {
       return false;
     }
 
     // Aceite sempre tem precedencia sobre exclusao para leis.
-    if (hasLeiReferencePhrase && !hasLeiAcceptanceSignal && !hasLeiPublicationSignal) {
+    if (
+      hasLeiReferencePhrase &&
+      !hasLeiAcceptanceSignal &&
+      !hasLeiPublicationSignal &&
+      !hasLeiCoreStructure
+    ) {
       return false;
     }
   }

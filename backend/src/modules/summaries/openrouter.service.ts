@@ -33,6 +33,8 @@ function sanitizeContextField(value?: string): string {
   return value
     .replace(/[\r\n\t]/g, ' ')
     .replace(/[<>`]/g, '')
+    .replace(/\bN\s*(?:[º°oO\.]|O)?\s*(?=\d)/g, 'N ')
+    .replace(/N\s{2,}/g, 'N ')
     .trim()
     .slice(0, MAX_CONTEXT_FIELD_CHARS);
 }
