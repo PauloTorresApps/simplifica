@@ -101,6 +101,13 @@ function extractExecutiveSection(text: string): string {
   return text.slice(contentStart).trim();
 }
 
+function isHeaderInReferenceContext(text: string, headerIndex: number): boolean {
+  const contextStart = Math.max(0, headerIndex - 80);
+  const beforeHeader = text.slice(contextStart, headerIndex);
+
+  return /\b(?:DO|NO|PELO|COM\s+O)\s*$/i.test(beforeHeader.trim());
+}
+
 function isLikelyNormativeActChunk(title: string, fullChunk: string): boolean {
   const actType = getActType(title);
   const normalizedTitle = title.replace(/[ ]{2,}/g, ' ').trim();
@@ -216,6 +223,11 @@ export function parseLegalActsWithDiagnostics(rawText: string): LegalActsParseRe
   for (let i = 0; i < matches.length; i++) {
     const current = matches[i];
     const next = matches[i + 1];
+
+    if (isHeaderInReferenceContext(text, current.index)) {
+      diagnostics.discardedNonNormative += 1;
+      continue;
+    }
 
     const start = current.index;
     const end = next ? next.index : text.length;

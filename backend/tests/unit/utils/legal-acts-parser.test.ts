@@ -118,6 +118,21 @@ No Decreto n 8.900 permanecem os procedimentos anteriores, sem criacao de regra 
     expect(acts).toHaveLength(0);
   });
 
+  it('ignores decree header when it appears after referential preposition context', () => {
+    const text = `
+ATOS DO CHEFE DO PODER EXECUTIVO
+
+PORTARIA N 244/2026
+... conforme o disposto no art. 30, inciso II, do
+DECRETO N 7.089, DE 30 DE JANEIRO DE 2026
+que dispoe sobre execucao orcamentaria e financeira.
+`;
+
+    const acts = parseLegalActs(text);
+
+    expect(acts).toHaveLength(0);
+  });
+
   it('ignores personnel-focused acts even when formal header exists', () => {
     const text = `
 ATOS DO CHEFE DO PODER EXECUTIVO
