@@ -10,7 +10,7 @@ async function start() {
     // Connect to database
     await Database.connect();
 
-    // Mark stale processing jobs as failed so users can retry after restarts
+    // Mark stale pending/processing jobs as failed so users can retry after restarts
     const staleBefore = new Date(
       Date.now() - env.SUMMARY_JOB_STALE_MINUTES * 60 * 1000
     );

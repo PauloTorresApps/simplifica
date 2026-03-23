@@ -6,6 +6,8 @@ interface SumarioEntry {
 interface PageRange {
   startPage: number;
   endPage: number | null;
+  nextSectionStartPage: number | null;
+  nextSectionName: string | null;
 }
 
 interface TextItem {
@@ -27,6 +29,161 @@ interface PageData {
 const SUMARIO_HEADING_REGEX = /SUM[ÁA]RIO/i;
 const SUMARIO_ENTRY_REGEX = /^(.+?)[.\s]{2,}(\d{1,4})\s*$/gm;
 const EXECUTIVE_ACTS_REGEX = /ATOS\s+DO\s+CHEFE\s+DO\s+PODER\s+EXECUTIVO/i;
+const NEXT_SECTION_FALLBACK_REGEX =
+  /(?:^|\n)\s*(SECRETARIA\b[^\n]*|CASA\s+CIVIL\b[^\n]*|GABINETE\b[^\n]*|DEFENSORIA\s+PUBLICA\b[^\n]*|MINISTERIO\s+PUBLICO\b[^\n]*|TRIBUNAL\b[^\n]*|ASSEMBLEIA\s+LEGISLATIVA\b[^\n]*|CONTROLADORIA\b[^\n]*|PROCURADORIA\b[^\n]*)/i;
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findSectionHeaderIndex(text: string, sectionName: string): number {
+  const tokens = sectionName
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token.length > 0)
+    .map((token) => escapeRegex(token));
+
+  if (tokens.length === 0) {
+    return -1;
+  }
+
+  const sectionRegex = new RegExp(`(?:^|\\n)\\s*${tokens.join('\\s+')}\\b`, 'im');
+  const match = text.match(sectionRegex);
+
+  return typeof match?.index === 'number' ? match.index : -1;
+}
+
+function findExecutiveSectionStartIndex(text: string): number {
+  const match = text.match(EXECUTIVE_ACTS_REGEX);
+
+  if (!match || typeof match.index !== 'number') {
+    return -1;
+  }
+
+  const lineBreakIndex = text.indexOf('\n', match.index);
+  return lineBreakIndex >= 0 ? lineBreakIndex + 1 : match.index;
+}
+
+function findFallbackBoundaryIndex(text: string): number {
+  const match = text.match(NEXT_SECTION_FALLBACK_REGEX);
+  return typeof match?.index === 'number' ? match.index : -1;
+}
+
+function trimBoundaryPageByNextSection(pageText: string, nextSectionName: string): {
+  trimmedText: string;
+  cutApplied: boolean;
+  cutMode: 'exact' | 'fallback' | 'drop';
+} {
+  const exactIndex = findSectionHeaderIndex(pageText, nextSectionName);
+
+  if (exactIndex >= 0) {
+    return {
+      trimmedText: pageText.slice(0, exactIndex).trim(),
+      cutApplied: true,
+      cutMode: 'exact',
+    };
+  }
+
+  const fallbackIndex = findFallbackBoundaryIndex(pageText);
+
+  if (fallbackIndex >= 0) {
+    return {
+      trimmedText: pageText.slice(0, fallbackIndex).trim(),
+      cutApplied: true,
+      cutMode: 'fallback',
+    };
+  }
+
+  // Conservative mode: if we cannot detect the next section boundary on the page-limit,
+  // drop this last page to avoid leaking content beyond the target scope.
+  return {
+    trimmedText: '',
+    cutApplied: false,
+    cutMode: 'drop',
+  };
+}
+
+function findEarlyBoundaryInParts(
+  parts: string[],
+  nextSectionName: string | null
+): { pageOffset: number; cutIndex: number; mode: 'exact' | 'fallback' } | null {
+  for (let pageOffset = 0; pageOffset < parts.length; pageOffset++) {
+    const pageText = parts[pageOffset];
+
+    if (SUMARIO_HEADING_REGEX.test(pageText)) {
+      continue;
+    }
+
+    const exactIndex = nextSectionName ? findSectionHeaderIndex(pageText, nextSectionName) : -1;
+    const fallbackIndex = findFallbackBoundaryIndex(pageText);
+
+    if (exactIndex >= 0) {
+      return {
+        pageOffset,
+        cutIndex: exactIndex,
+        mode: 'exact',
+      };
+    }
+
+    if (fallbackIndex >= 0) {
+      return {
+        pageOffset,
+        cutIndex: fallbackIndex,
+        mode: 'fallback',
+      };
+    }
+  }
+
+  return null;
+}
+
+function extractBySectionHeuristic(pageTexts: string[]): string | null {
+  const startPageIndex = pageTexts.findIndex((pageText) => EXECUTIVE_ACTS_REGEX.test(pageText));
+
+  if (startPageIndex < 0) {
+    console.log('📋 Secao ATOS DO CHEFE DO PODER EXECUTIVO nao encontrada; descartando extracao fora de escopo');
+    return null;
+  }
+
+  const parts: string[] = [];
+
+  for (let i = startPageIndex; i < pageTexts.length; i++) {
+    let pageText = pageTexts[i];
+
+    if (i === startPageIndex) {
+      const sectionStart = findExecutiveSectionStartIndex(pageText);
+      if (sectionStart >= 0) {
+        pageText = pageText.slice(sectionStart).trim();
+      }
+    }
+
+    if (pageText.length === 0) {
+      continue;
+    }
+
+    const boundaryIndex = findFallbackBoundaryIndex(pageText);
+
+    if (boundaryIndex >= 0) {
+      const beforeBoundary = pageText.slice(0, boundaryIndex).trim();
+
+      if (beforeBoundary.length > 0) {
+        parts.push(beforeBoundary);
+      }
+
+      console.log(
+        `📋 Recorte heuristico aplicado: secao executiva da pagina ${startPageIndex + 1} ate pagina ${i + 1}`
+      );
+      return parts.join('\n').trim() || null;
+    }
+
+    parts.push(pageText);
+  }
+
+  console.log(
+    `📋 Recorte heuristico aplicado: secao executiva da pagina ${startPageIndex + 1} ate fim do documento`
+  );
+  return parts.join('\n').trim() || null;
+}
 
 function parseSumarioEntries(pageTexts: string[]): SumarioEntry[] {
   const searchText = pageTexts.slice(0, 5).join('\n');
@@ -77,6 +234,8 @@ export function findExecutiveActsPageRange(pageTexts: string[]): PageRange | nul
     return {
       startPage,
       endPage: null,
+      nextSectionStartPage: null,
+      nextSectionName: null,
     };
   }
 
@@ -85,7 +244,119 @@ export function findExecutiveActsPageRange(pageTexts: string[]): PageRange | nul
   return {
     startPage,
     endPage,
+    nextSectionStartPage: nextEntry.page,
+    nextSectionName: nextEntry.name,
   };
+}
+
+export function extractExecutiveActsFromPageTexts(pageTexts: string[]): string | null {
+  if (pageTexts.length === 0) {
+    return null;
+  }
+
+  const pageRange = findExecutiveActsPageRange(pageTexts);
+
+  if (!pageRange) {
+    console.log('📋 SUMARIO nao localizado; aplicando recorte heuristico por secao executiva');
+    return extractBySectionHeuristic(pageTexts);
+  }
+
+  const startIndex = Math.max(pageRange.startPage - 1, 0);
+
+  if (startIndex >= pageTexts.length) {
+    console.log('📋 Faixa de SUMARIO invalida; aplicando recorte heuristico por secao executiva');
+    return extractBySectionHeuristic(pageTexts);
+  }
+
+  const boundaryIndex =
+    pageRange.nextSectionStartPage && pageRange.nextSectionStartPage > 0
+      ? Math.min(pageRange.nextSectionStartPage - 1, pageTexts.length - 1)
+      : pageTexts.length - 1;
+
+  if (boundaryIndex < startIndex) {
+    console.log('📋 Faixa de SUMARIO invalida; aplicando recorte heuristico por secao executiva');
+    return extractBySectionHeuristic(pageTexts);
+  }
+
+  const parts = pageTexts.slice(startIndex, boundaryIndex + 1);
+
+  const firstExecutivePageOffset = (() => {
+    const nonSummaryOffset = parts.findIndex(
+      (pageText) => EXECUTIVE_ACTS_REGEX.test(pageText) && !SUMARIO_HEADING_REGEX.test(pageText)
+    );
+
+    if (nonSummaryOffset >= 0) {
+      return nonSummaryOffset;
+    }
+
+    return parts.findIndex((pageText) => EXECUTIVE_ACTS_REGEX.test(pageText));
+  })();
+
+  if (firstExecutivePageOffset > 0) {
+    parts.splice(0, firstExecutivePageOffset);
+    console.log(
+      `📋 Ajuste de ancoragem: cabecalho da secao executiva encontrado ${firstExecutivePageOffset} pagina(s) apos a pagina inicial do sumario`
+    );
+  }
+
+  if (parts.length > 0) {
+    const firstPartStart = SUMARIO_HEADING_REGEX.test(parts[0])
+      ? -1
+      : findExecutiveSectionStartIndex(parts[0]);
+
+    if (firstPartStart >= 0) {
+      parts[0] = parts[0].slice(firstPartStart).trim();
+    }
+  }
+
+  const earlyBoundary = findEarlyBoundaryInParts(parts, pageRange.nextSectionName);
+  const earlyBoundaryApplied = Boolean(earlyBoundary);
+
+  if (earlyBoundary) {
+    parts.splice(earlyBoundary.pageOffset + 1);
+    parts[earlyBoundary.pageOffset] = parts[earlyBoundary.pageOffset]
+      .slice(0, earlyBoundary.cutIndex)
+      .trim();
+
+    console.log(
+      `📋 Corte antecipado aplicado na pagina ${startIndex + earlyBoundary.pageOffset + 1} por cabecalho ${earlyBoundary.mode === 'exact' ? 'exato da proxima secao' : 'institucional de fallback'}`
+    );
+  }
+
+  if (
+    !earlyBoundaryApplied &&
+    pageRange.nextSectionStartPage !== null &&
+    pageRange.nextSectionName &&
+    parts.length > 0
+  ) {
+    const lastPart = parts[parts.length - 1];
+    const boundaryTrim = trimBoundaryPageByNextSection(lastPart, pageRange.nextSectionName);
+
+    if (boundaryTrim.cutApplied) {
+      parts[parts.length - 1] = boundaryTrim.trimmedText;
+      const cutDescription =
+        boundaryTrim.cutMode === 'exact'
+          ? `inicio de ${pageRange.nextSectionName}`
+          : 'cabecalho institucional de fallback';
+
+      console.log(
+        `📋 SUMARIO detectado: Atos do Poder Executivo da pagina ${pageRange.startPage} ate ${cutDescription} (pagina ${pageRange.nextSectionStartPage})`
+      );
+    } else {
+      parts.pop();
+      console.log(
+        `📋 SUMARIO detectado: Atos do Poder Executivo da pagina ${pageRange.startPage} ate ${Math.max(startIndex + 1, boundaryIndex)} (pagina limite removida por falta de cabecalho de corte)`
+      );
+    }
+  } else {
+    console.log(
+      pageRange.endPage
+        ? `📋 SUMARIO detectado: Atos do Poder Executivo da pagina ${pageRange.startPage} ate ${pageRange.endPage}`
+        : `📋 SUMARIO detectado: Atos do Poder Executivo a partir da pagina ${pageRange.startPage}`
+    );
+  }
+
+  return parts.join('\n').trim() || null;
 }
 
 export async function extractExecutiveActsContent(pdfBuffer: Buffer): Promise<string | null> {
@@ -122,28 +393,5 @@ export async function extractExecutiveActsContent(pdfBuffer: Buffer): Promise<st
     return null;
   }
 
-  const pageRange = findExecutiveActsPageRange(pageTexts);
-
-  if (!pageRange) {
-    console.log('📋 SUMARIO nao localizado; usando conteudo integral do PDF');
-    return pageTexts.join('\n').trim() || null;
-  }
-
-  const startIndex = Math.max(pageRange.startPage - 1, 0);
-  const endExclusive = pageRange.endPage
-    ? Math.min(pageRange.endPage, pageTexts.length)
-    : pageTexts.length;
-
-  if (startIndex >= pageTexts.length || startIndex >= endExclusive) {
-    console.log('📋 Faixa de SUMARIO invalida; usando conteudo integral do PDF');
-    return pageTexts.join('\n').trim() || null;
-  }
-
-  console.log(
-    pageRange.endPage
-      ? `📋 SUMARIO detectado: Atos do Poder Executivo da pagina ${pageRange.startPage} ate ${pageRange.endPage}`
-      : `📋 SUMARIO detectado: Atos do Poder Executivo a partir da pagina ${pageRange.startPage}`
-  );
-
-  return pageTexts.slice(startIndex, endExclusive).join('\n').trim() || null;
+  return extractExecutiveActsFromPageTexts(pageTexts);
 }

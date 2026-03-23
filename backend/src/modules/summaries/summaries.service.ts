@@ -7,9 +7,10 @@ import {
   GetSummaryJobStatusInput,
   RetryFailedSummaryJobsQueryInput,
 } from './summaries.schema';
-import { parseLegalActs } from '../../shared/utils/legal-acts-parser';
+import { parseLegalActs, parseLegalActsWithDiagnostics } from '../../shared/utils/legal-acts-parser';
 import { SummaryJobRepository } from './summary-job.repository';
 import { SummaryJobStatus } from '@prisma/client';
+import { env } from '../../config/env';
 
 export class SummariesService {
   constructor(
@@ -19,6 +20,20 @@ export class SummariesService {
     private summaryJobRepository: SummaryJobRepository
   ) {}
 
+  private logParsingDiagnostics(publicationId: string, diagnostics: {
+    hasInput: boolean;
+    executiveSectionFound: boolean;
+    headerMatches: number;
+    keptChunks: number;
+    discardedShort: number;
+    discardedNonNormative: number;
+    discardedDuplicate: number;
+  }) {
+    console.info(
+      `Resumo parser [publication=${publicationId}] hasInput=${diagnostics.hasInput}; executiveSectionFound=${diagnostics.executiveSectionFound}; headers=${diagnostics.headerMatches}; kept=${diagnostics.keptChunks}; discardShort=${diagnostics.discardedShort}; discardNonNormative=${diagnostics.discardedNonNormative}; discardDuplicate=${diagnostics.discardedDuplicate}`
+    );
+  }
+
   async getByPublicationId(publicationId: string) {
     const summaries = await this.summariesRepository.findByPublicationId(publicationId);
 
@@ -26,7 +41,8 @@ export class SummariesService {
       const publication = await this.publicationsRepository.findById(publicationId);
 
       if (publication?.rawContent) {
-        const legalActs = parseLegalActs(publication.rawContent);
+        const { chunks: legalActs, diagnostics } = parseLegalActsWithDiagnostics(publication.rawContent);
+        this.logParsingDiagnostics(publicationId, diagnostics);
 
         if (legalActs.length === 0) {
           throw new AppError(
@@ -54,7 +70,10 @@ export class SummariesService {
       throw new AppError('Publicação não possui conteúdo para gerar resumo', 400, 'NO_CONTENT');
     }
 
-    const legalActs = parseLegalActs(publication.rawContent);
+    const { chunks: legalActs, diagnostics } = parseLegalActsWithDiagnostics(
+      publication.rawContent
+    );
+    this.logParsingDiagnostics(input.publicationId, diagnostics);
 
     if (legalActs.length === 0) {
       throw new AppError(
@@ -69,7 +88,19 @@ export class SummariesService {
     );
 
     if (activeJob) {
+      const staleBefore = new Date(
+        Date.now() - env.SUMMARY_JOB_STALE_MINUTES * 60 * 1000
+      );
+
+      if (activeJob.updatedAt < staleBefore) {
+        await this.summaryJobRepository.updateStatus(
+          activeJob.id,
+          SummaryJobStatus.FAILED,
+          'Processamento interrompido ou travado. Inicie uma nova analise.'
+        );
+      } else {
       return this.buildJobStatusResponse(activeJob);
+      }
     }
 
     const job = await this.summaryJobRepository.create({
@@ -146,59 +177,70 @@ export class SummariesService {
     publicationId: string,
     legalActs: ReturnType<typeof parseLegalActs>
   ) {
-    await this.summaryJobRepository.updateStatus(jobId, SummaryJobStatus.PROCESSING);
+    try {
+      await this.summaryJobRepository.updateStatus(jobId, SummaryJobStatus.PROCESSING);
 
-    await this.summariesRepository.deleteByPublicationId(publicationId);
+      await this.summariesRepository.deleteByPublicationId(publicationId);
 
-    const generatedSummaries = [];
-    let completedSteps = 0;
+      const generatedSummaries = [];
+      let completedSteps = 0;
 
-    for (const legalAct of legalActs) {
-      await this.summaryJobRepository.updateProgress(
-        jobId,
-        completedSteps,
-        `${legalAct.type ?? 'ATO'} - ${legalAct.title}`
-      );
+      for (const legalAct of legalActs) {
+        await this.summaryJobRepository.updateProgress(
+          jobId,
+          completedSteps,
+          `${legalAct.type ?? 'ATO'} - ${legalAct.title}`
+        );
 
-      try {
-        const llmResponse = await this.openRouterService.generateSummary(legalAct.content, {
-          legalType: legalAct.type,
-          legalTitle: legalAct.title,
-        });
+        try {
+          const llmResponse = await this.openRouterService.generateSummary(legalAct.content, {
+            legalType: legalAct.type,
+            legalTitle: legalAct.title,
+          });
 
-        const summary = await this.summariesRepository.create({
-          content: llmResponse.content,
-          model: llmResponse.model,
-          tokensUsed: llmResponse.tokensUsed,
-          topicType: legalAct.type,
-          topicTitle: legalAct.title,
-          topicOrder: legalAct.order,
-          publication: {
-            connect: { id: publicationId },
-          },
-        });
+          const summary = await this.summariesRepository.create({
+            content: llmResponse.content,
+            model: llmResponse.model,
+            tokensUsed: llmResponse.tokensUsed,
+            topicType: legalAct.type,
+            topicTitle: legalAct.title,
+            topicOrder: legalAct.order,
+            publication: {
+              connect: { id: publicationId },
+            },
+          });
 
-        generatedSummaries.push(summary);
-        completedSteps += 1;
-        await this.summaryJobRepository.updateProgress(jobId, completedSteps, legalAct.title);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Erro desconhecido';
-        console.error(`Erro ao gerar resumo para ${legalAct.title}: ${message}`);
+          generatedSummaries.push(summary);
+          completedSteps += 1;
+          await this.summaryJobRepository.updateProgress(jobId, completedSteps, legalAct.title);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Erro desconhecido';
+          console.error(`Erro ao gerar resumo para ${legalAct.title}: ${message}`);
+        }
       }
-    }
 
-    if (generatedSummaries.length === 0) {
+      if (generatedSummaries.length === 0) {
+        await this.summaryJobRepository.updateStatus(
+          jobId,
+          SummaryJobStatus.FAILED,
+          'Não foi possível gerar os resumos dos decretos, leis e medidas provisórias desta edição',
+        );
+
+        return;
+      }
+
+      await this.summaryJobRepository.updateProgress(jobId, completedSteps, null);
+      await this.summaryJobRepository.updateStatus(jobId, SummaryJobStatus.COMPLETED);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error(`Erro inesperado no job ${jobId}: ${message}`);
+
       await this.summaryJobRepository.updateStatus(
         jobId,
         SummaryJobStatus.FAILED,
-        'Não foi possível gerar os resumos dos decretos, leis e medidas provisórias desta edição',
+        `Falha inesperada no processamento: ${message}`
       );
-
-      return;
     }
-
-    await this.summaryJobRepository.updateProgress(jobId, completedSteps, null);
-    await this.summaryJobRepository.updateStatus(jobId, SummaryJobStatus.COMPLETED);
   }
 
   private buildJobStatusResponse(job: {

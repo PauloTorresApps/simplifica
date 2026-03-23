@@ -29,6 +29,7 @@ vi.mock('../../../src/config/openrouter', () => ({
     },
   },
   SUMMARY_SYSTEM_PROMPT: 'Summarize legal text.',
+  SUMMARY_USER_PROMPT: 'Explain clearly for citizens.',
 }));
 
 vi.mock('../../../src/config/env', () => ({
@@ -36,6 +37,8 @@ vi.mock('../../../src/config/env', () => ({
     SUMMARY_MAX_CONTENT_CHARS: 120000,
     OPENROUTER_RATE_LIMIT_DELAY_MS: 12000,
     OPENROUTER_MAX_TOKENS: 5000,
+    OPENROUTER_LOG_REQUEST_CONTENT: false,
+    OPENROUTER_LOG_REQUEST_MAX_CHARS: 1200,
   },
 }));
 
@@ -182,5 +185,66 @@ describe('OpenRouterService', () => {
     });
     expect(result.model).toBe('primary-model');
     expect(result.tokensUsed).toBe(34);
+  });
+
+  it('retries when response is citation-heavy and then accepts a valid summary', async () => {
+    vi.useFakeTimers();
+
+    chatSendMock
+      .mockResolvedValueOnce({
+        id: 'chatcmpl-3',
+        object: 'chat.completion',
+        created: 1710000002,
+        model: 'primary-model',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content:
+                '<article><p>Nos termos da Lei nº 8.112/1990, do Decreto nº 1.234/2000 e conforme disposições anteriores.</p></article>',
+            },
+          },
+        ],
+        usage: {
+          promptTokens: 15,
+          completionTokens: 25,
+          totalTokens: 40,
+        },
+      })
+      .mockResolvedValueOnce({
+        id: 'chatcmpl-4',
+        object: 'chat.completion',
+        created: 1710000003,
+        model: 'primary-model',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content:
+                '<article><h1>Resumo</h1><p>O Decreto nº 123/2024 altera procedimentos administrativos e entra em vigor na data da publicação.</p></article>',
+            },
+          },
+        ],
+        usage: {
+          promptTokens: 16,
+          completionTokens: 26,
+          totalTokens: 42,
+        },
+      });
+
+    const resultPromise = service.generateSummary('Texto para teste anti-citacao', {
+      legalType: 'DECRETO',
+      legalTitle: 'DECRETO Nº 123/2024',
+    });
+
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+    vi.useRealTimers();
+
+    expect(chatSendMock).toHaveBeenCalledTimes(2);
+    expect(result.model).toBe('primary-model');
+    expect(result.content).toContain('Decreto nº 123/2024');
   });
 });

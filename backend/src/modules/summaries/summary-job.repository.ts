@@ -61,7 +61,9 @@ export class SummaryJobRepository {
   async markStaleProcessingJobsAsFailed(staleBefore: Date) {
     const result = await prisma.summaryJob.updateMany({
       where: {
-        status: SummaryJobStatus.PROCESSING,
+        status: {
+          in: [SummaryJobStatus.PENDING, SummaryJobStatus.PROCESSING],
+        },
         updatedAt: {
           lt: staleBefore,
         },
@@ -70,7 +72,7 @@ export class SummaryJobRepository {
         status: SummaryJobStatus.FAILED,
         currentStep: null,
         errorMessage:
-          'Processamento interrompido por reinicio do servidor. Inicie uma nova analise.',
+          'Processamento interrompido ou travado. Inicie uma nova analise.',
       },
     });
 

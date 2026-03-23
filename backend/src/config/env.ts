@@ -45,6 +45,11 @@ const envSchema = z.object({
   PDF_DOWNLOAD_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   OPENROUTER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   OPENROUTER_RATE_LIMIT_DELAY_MS: z.coerce.number().int().min(1000).max(300000).default(10000),
+  OPENROUTER_LOG_REQUEST_CONTENT: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  OPENROUTER_LOG_REQUEST_MAX_CHARS: z.coerce.number().int().min(500).max(500000).default(15000),
   OPENROUTER_MAX_TOKENS: z.coerce.number().int().min(256).max(12000).default(5000),
   SUMMARY_MAX_CONTENT_CHARS: z.coerce.number().int().min(1000).max(500000).default(120000),
   SUMMARY_JOB_STALE_MINUTES: z.coerce.number().int().min(5).max(1440).default(30),
