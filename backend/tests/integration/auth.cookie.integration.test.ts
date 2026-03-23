@@ -7,6 +7,27 @@ vi.mock('../../src/config/database', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    role: {
+      upsert: vi.fn(),
+    },
+  },
+}));
+
+vi.mock('../../src/shared/repositories/permission.repository', () => ({
+  permissionRepository: {
+    assignRoleToUser: vi.fn().mockResolvedValue(undefined),
+    getUserRoles: vi.fn().mockResolvedValue(['USER']),
+    getUserPermissions: vi.fn().mockResolvedValue([]),
+    getUserPermissionsAndRoles: vi.fn().mockResolvedValue({
+      roles: ['USER'],
+      permissions: [],
+    }),
+    invalidateUser: vi.fn(),
+    removeRoleFromUser: vi.fn().mockResolvedValue(undefined),
+    listRolesWithPermissions: vi.fn().mockResolvedValue([]),
+    listPermissions: vi.fn().mockResolvedValue([]),
+    assignPermissionToRole: vi.fn().mockResolvedValue(undefined),
+    removePermissionFromRole: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -14,6 +35,9 @@ type PrismaMock = {
   user: {
     findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
+  };
+  role: {
+    upsert: ReturnType<typeof vi.fn>;
   };
 };
 

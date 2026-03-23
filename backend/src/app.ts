@@ -10,9 +10,11 @@ import { env } from './config/env';
 import { errorHandler } from './shared/errors/error-handler';
 import { ForbiddenError } from './shared/errors/app-error';
 import { authenticate } from './modules/auth/auth.middleware';
+import { requirePermission } from './shared/middlewares/require-permission';
 import { authRoutes } from './modules/auth/auth.routes';
 import { publicationsRoutes } from './modules/publications/publications.routes';
 import { summariesRoutes } from './modules/summaries/summaries.routes';
+import { adminRoutes } from './modules/admin/admin.routes';
 
 function getHeaderValue(value: string | string[] | undefined): string | null {
   if (!value) {
@@ -220,6 +222,7 @@ export async function buildApp() {
 
   // Decorate app with authenticate
   app.decorate('authenticate', authenticate);
+  app.decorate('requirePermission', requirePermission);
 
   // Health check
   app.get('/health', async () => {
@@ -230,6 +233,7 @@ export async function buildApp() {
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(publicationsRoutes, { prefix: '/api/publications' });
   await app.register(summariesRoutes, { prefix: '/api/summaries' });
+  await app.register(adminRoutes, { prefix: '/api/admin' });
 
   return app;
 }

@@ -53,6 +53,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3333),
   CORS_ORIGIN: z.string().default('http://localhost:3000,http://127.0.0.1:3000'),
+  OPS_ADMIN_EMAILS: z.string().default(''),
   DOCS_AUTH_USER: z.string().default(''),
   DOCS_AUTH_PASSWORD: z.string().default(''),
 });

@@ -4,6 +4,9 @@ import { UnauthorizedError } from '../../shared/errors/app-error';
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requirePermission: (
+      permission: string
+    ) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 

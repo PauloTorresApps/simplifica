@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { permissionRepository } from '../../src/shared/repositories/permission.repository';
 
 vi.mock('../../src/config/database', () => ({
   prisma: {
@@ -7,6 +8,27 @@ vi.mock('../../src/config/database', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    role: {
+      upsert: vi.fn(),
+    },
+  },
+}));
+
+vi.mock('../../src/shared/repositories/permission.repository', () => ({
+  permissionRepository: {
+    assignRoleToUser: vi.fn().mockResolvedValue(undefined),
+    getUserRoles: vi.fn().mockResolvedValue(['USER']),
+    getUserPermissions: vi.fn().mockResolvedValue(['summaries:retry-failed']),
+    getUserPermissionsAndRoles: vi.fn().mockResolvedValue({
+      roles: ['USER'],
+      permissions: ['summaries:retry-failed'],
+    }),
+    invalidateUser: vi.fn(),
+    removeRoleFromUser: vi.fn().mockResolvedValue(undefined),
+    listRolesWithPermissions: vi.fn().mockResolvedValue([]),
+    listPermissions: vi.fn().mockResolvedValue([]),
+    assignPermissionToRole: vi.fn().mockResolvedValue(undefined),
+    removePermissionFromRole: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -90,6 +112,9 @@ type PrismaMock = {
     findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
+  role: {
+    upsert: ReturnType<typeof vi.fn>;
+  };
 };
 
 let app: FastifyInstance;
@@ -127,6 +152,9 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  vi.mocked(permissionRepository.getUserPermissions).mockResolvedValue([
+    'summaries:retry-failed',
+  ]);
   app = await buildAppFn();
 });
 
@@ -186,5 +214,47 @@ describe('Summaries Retry Failed Jobs', () => {
 
     expect(response.statusCode).toBe(401);
     expect(response.json().success).toBe(false);
+  });
+
+  it('should return forbidden when authenticated user lacks permission', async () => {
+    const { hashPassword } = await import('../../src/shared/utils/hash');
+    const hashedPassword = await hashPassword('Password123');
+
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-id',
+      email: 'test@example.com',
+      password: hashedPassword,
+      name: 'Test User',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: {
+        email: 'test@example.com',
+        password: 'Password123',
+      },
+      headers: {
+        origin: 'http://localhost:3000',
+      },
+    });
+
+    const authCookie = getFirstCookie(loginResponse.headers['set-cookie']);
+    vi.mocked(permissionRepository.getUserPermissions).mockResolvedValue([]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/summaries/jobs/retry-failed?limit=3&failedOlderThanMinutes=15',
+      headers: {
+        origin: 'http://localhost:3000',
+        cookie: authCookie,
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().success).toBe(false);
+    expect(response.json().error?.code).toBe('FORBIDDEN');
   });
 });

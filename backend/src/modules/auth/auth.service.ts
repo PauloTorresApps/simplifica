@@ -20,6 +20,7 @@ import {
 import { JwtPayload } from '../../shared/types';
 import { env } from '../../config/env';
 import { EmailService } from '../../shared/services/email.service';
+import { permissionRepository } from '../../shared/repositories/permission.repository';
 
 const DUMMY_HASH_PROMISE = hashPassword('invalid-password-for-timing-protection');
 const GENERIC_FORGOT_PASSWORD_MESSAGE =
@@ -67,13 +68,23 @@ export class AuthService {
       },
     });
 
+    await prisma.role.upsert({
+      where: { name: 'USER' },
+      update: {},
+      create: { name: 'USER' },
+    });
+
+    await permissionRepository.assignRoleToUser(user.id, 'USER');
+
+    const roles = await permissionRepository.getUserRoles(user.id);
+
     // Generate token
     const token = this.app.jwt.sign(
       { sub: user.id, email: user.email, name: user.name } as JwtPayload,
       { expiresIn: env.JWT_EXPIRES_IN }
     );
 
-    return { user, token };
+    return { user: { ...user, roles }, token };
   }
 
   async login(data: LoginInput) {
@@ -96,11 +107,14 @@ export class AuthService {
       { expiresIn: env.JWT_EXPIRES_IN }
     );
 
+    const roles = await permissionRepository.getUserRoles(user.id);
+
     return {
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        roles,
         createdAt: user.createdAt,
       },
       token,
@@ -123,7 +137,12 @@ export class AuthService {
       throw new NotFoundError('Usuário');
     }
 
-    return user;
+    const roles = await permissionRepository.getUserRoles(userId);
+
+    return {
+      ...user,
+      roles,
+    };
   }
 
   async requestPasswordReset(data: ForgotPasswordInput) {

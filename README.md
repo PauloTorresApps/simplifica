@@ -2,6 +2,103 @@
 
 Sistema que transforma decretos e publicações oficiais do Diário Oficial do Tocantins (DOE-TO) em resumos claros e acessíveis, utilizando Inteligência Artificial.
 
+## 🚀 Tutorial Rápido (Instalar, Configurar e Usar)
+
+Siga este passo a passo para subir o sistema localmente do zero.
+
+### 1. Pré-requisitos
+
+- Docker e Docker Compose
+- Node.js 20+
+- npm
+- Chave da OpenRouter (`sk-or-...`)
+
+### 2. Clonar o projeto
+
+```bash
+git clone <repo-url>
+cd simplifica
+```
+
+### 3. Configurar ambiente
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Edite `backend/.env` e preencha pelo menos:
+
+- `OPENROUTER_API_KEY`
+- `JWT_SECRET`
+- `CORS_ORIGIN`
+
+Opcional para bootstrap de operadores:
+
+- `OPS_ADMIN_EMAILS=ops1@exemplo.com,ops2@exemplo.com`
+
+### 4. Instalar dependências
+
+```bash
+cd backend && npm install
+cd ../frontend && npm install
+cd ../backend
+```
+
+### 5. Subir banco e bootstrap RBAC (1 comando)
+
+```bash
+npm run db:bootstrap:dev:docker
+```
+
+Esse comando:
+
+- sobe o Postgres dev via Docker
+- gera Prisma Client
+- aplica migrations
+- executa seed
+- valida RBAC (`roles` e `permissions`) com smoke test
+
+### 6. Iniciar backend e frontend
+
+Em dois terminais:
+
+```bash
+# Terminal 1
+cd backend
+npm run dev
+```
+
+```bash
+# Terminal 2
+cd frontend
+npm run dev
+```
+
+### 7. Acessar e usar
+
+- Frontend: `http://localhost:3000`
+- API: `http://localhost:3333`
+- Health: `http://localhost:3333/health`
+
+Fluxo inicial:
+
+1. Criar conta
+2. Fazer login
+3. Abrir Publicações
+4. Entrar em uma edição
+5. Clicar para gerar resumo
+6. Acompanhar progresso até conclusão
+
+### 8. Testar rapidamente
+
+```bash
+cd backend
+npm run build
+npm run test -- tests/integration/*.test.ts
+```
+
+---
+
 ## 🎯 Visão Geral
 
 O Simplifica consome publicações do Diário Oficial do Tocantins via API, utiliza LLM (Large Language Model) via OpenRouter para gerar resumos em linguagem acessível ao cidadão comum, e disponibiliza através de uma interface web moderna com autenticação de usuários.
@@ -154,6 +251,7 @@ DOE_SYNC_CRON=0 8 * * 1-5
 NODE_ENV=development
 PORT=3333
 CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000
+OPS_ADMIN_EMAILS=ops1@exemplo.com,ops2@exemplo.com
 ```
 
 ### 3. Inicie os containers
@@ -213,7 +311,67 @@ Observação: autenticação é baseada em cookie `httpOnly` (`auth_token`) com 
 | Método | Endpoint | Descrição | Auth |
 | --- | --- | --- | --- |
 | GET | `/api/summaries/:publicationId` | Resumos da publicação | ✅ |
-| POST | `/api/summaries/generate/:publicationId` | Gerar resumo | ✅ |
+| POST | `/api/summaries/generate/:publicationId` | Inicia geração assíncrona (retorna job) | ✅ |
+| GET | `/api/summaries/job/:jobId` | Status/progresso do job | ✅ |
+| POST | `/api/summaries/jobs/retry-failed` | Reprocessa jobs falhos sem análise concluída | ✅ (permissão `summaries:retry-failed`) |
+
+### Admin (RBAC)
+
+| Método | Endpoint | Descrição | Auth |
+| --- | --- | --- | --- |
+| GET | `/api/admin/users` | Listar usuários com papéis | ✅ (`admin:users:read`) |
+| GET | `/api/admin/users/:userId` | Obter usuário com papéis | ✅ (`admin:users:read`) |
+| POST | `/api/admin/users/:userId/roles` | Atribuir papel ao usuário | ✅ (`admin:users:manage-roles`) |
+| DELETE | `/api/admin/users/:userId/roles/:roleId` | Remover papel do usuário | ✅ (`admin:users:manage-roles`) |
+| GET | `/api/admin/roles` | Listar papéis e permissões | ✅ (`admin:roles:read`) |
+| GET | `/api/admin/permissions` | Listar permissões | ✅ (`admin:permissions:read`) |
+| POST | `/api/admin/roles/:roleId/permissions` | Atribuir permissão ao papel | ✅ (`admin:roles:manage`) |
+| DELETE | `/api/admin/roles/:roleId/permissions/:permissionId` | Remover permissão do papel | ✅ (`admin:roles:manage`) |
+
+### Seed RBAC
+
+O seed cria e mantém de forma idempotente os papéis `USER`, `OPS` e `ADMIN`, além das permissões padrão e vínculos entre eles.
+
+```bash
+cd backend
+npm run db:seed
+```
+
+- Novos usuários recebem `USER` automaticamente no cadastro.
+- Usuários existentes sem papel recebem `USER` no seed.
+- E-mails listados em `OPS_ADMIN_EMAILS` recebem o papel `OPS` durante o seed.
+
+### Bootstrap local rápido (DB + RBAC)
+
+Para preparar o ambiente local de banco com validação mínima de RBAC:
+
+```bash
+cd backend
+npm run db:bootstrap:dev
+```
+
+Esse comando executa em sequência:
+
+- `db:generate`
+- `db:migrate:prod`
+- `db:seed`
+- `db:smoke:rbac`
+
+Para fazer o bootstrap já subindo o Postgres de desenvolvimento via Docker:
+
+```bash
+cd backend
+npm run db:bootstrap:dev:docker
+```
+
+Variáveis opcionais para esse fluxo:
+
+- `POSTGRES_PASSWORD` (default: `simplifica123`)
+- `POSTGRES_USER` (default: `simplifica`)
+- `POSTGRES_DB` (default: `simplifica_dev`)
+- `DB_HOST` (default: `localhost`)
+- `DB_PORT` (default: `5433`)
+- `OPS_ADMIN_EMAILS` (default: vazio)
 
 ## 🧪 Testes
 
@@ -255,6 +413,9 @@ npm run dev
 # Backend
 npm run db:migrate       # Executar migrations
 npm run db:generate      # Gerar Prisma Client
+npm run db:bootstrap:dev # Bootstrap local (generate+migrate+seed+smoke)
+npm run db:bootstrap:dev:docker # Sobe Postgres dev no Docker e roda bootstrap
+npm run db:smoke:rbac    # Validar presença de roles/permissoes basicas
 npm run db:studio        # Abrir Prisma Studio
 npm run lint             # Verificar código
 npm run lint:fix         # Corrigir código
@@ -270,7 +431,12 @@ docker compose logs -f   # Ver logs
 ### Tabelas
 
 - **users**: Usuários do sistema
+- **roles**: Papéis de acesso (RBAC)
+- **permissions**: Permissões granulares
+- **user_roles**: Relação N:N entre usuário e papel
+- **role_permissions**: Relação N:N entre papel e permissão
 - **publications**: Publicações do DOE-TO
+- **summary_jobs**: Jobs assíncronos de geração de resumos
 - **summaries**: Resumos gerados pela IA
 
 ### Diagrama ER

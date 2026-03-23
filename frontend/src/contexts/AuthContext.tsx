@@ -6,6 +6,7 @@ interface AuthContextData {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasRole: (role: string) => boolean;
   login: (data: LoginInput) => Promise<void>;
   register: (data: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
@@ -65,12 +66,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return authService.resetPassword({ token, password });
   }
 
+  function hasRole(role: string) {
+    return user?.roles?.includes(role) ?? false;
+  }
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
         isLoading,
+        hasRole,
         login,
         register,
         logout,

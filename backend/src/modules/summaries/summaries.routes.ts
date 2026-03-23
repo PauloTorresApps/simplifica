@@ -100,7 +100,7 @@ export async function summariesRoutes(app: FastifyInstance) {
   app.post(
     '/jobs/retry-failed',
     {
-      onRequest: [app.authenticate],
+      onRequest: [app.authenticate, app.requirePermission('summaries:retry-failed')],
       config: {
         rateLimit: {
           max: 5,
