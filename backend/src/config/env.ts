@@ -54,6 +54,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3333),
   CORS_ORIGIN: z.string().default('http://localhost:3000,http://127.0.0.1:3000'),
   OPS_ADMIN_EMAILS: z.string().default(''),
+  ADMIN_BOOTSTRAP_EMAIL: z.string().email().optional(),
+  ADMIN_BOOTSTRAP_PASSWORD: z.string().min(8).optional(),
+  ADMIN_BOOTSTRAP_NAME: z.string().default('Administrador'),
   DOCS_AUTH_USER: z.string().default(''),
   DOCS_AUTH_PASSWORD: z.string().default(''),
 });

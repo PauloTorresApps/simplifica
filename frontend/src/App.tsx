@@ -6,12 +6,19 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
+import { ForceChangePassword } from './pages/ForceChangePassword';
 import { Publications } from './pages/Publications';
 import { PublicationDetail } from './pages/PublicationDetail';
 import { Loading } from './components/common/Loading';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+function PrivateRoute({
+  children,
+  allowPasswordChangeRequired = false,
+}: {
+  children: React.ReactNode;
+  allowPasswordChangeRequired?: boolean;
+}) {
+  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
 
   if (isLoading) {
     return <Loading />;
@@ -21,17 +28,25 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
+  if (mustChangePassword && !allowPasswordChangeRequired) {
+    return <Navigate to="/force-change-password" replace />;
+  }
+
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
 
   if (isLoading) {
     return <Loading />;
   }
 
   if (isAuthenticated) {
+    if (mustChangePassword) {
+      return <Navigate to="/force-change-password" replace />;
+    }
+
     return <Navigate to="/publications" replace />;
   }
 
@@ -80,6 +95,14 @@ export default function App() {
             <PublicRoute>
               <ResetPassword />
             </PublicRoute>
+          }
+        />
+        <Route
+          path="/force-change-password"
+          element={
+            <PrivateRoute allowPasswordChangeRequired>
+              <ForceChangePassword />
+            </PrivateRoute>
           }
         />
         <Route

@@ -7,6 +7,7 @@ import {
   RegisterInput,
   ForgotPasswordInput,
   ResetPasswordInput,
+  ChangePasswordInput,
   MessageResponse,
 } from '../types';
 import { getPublicApiResponseMessage, getPublicErrorMessage } from '../utils/public-error';
@@ -92,6 +93,22 @@ export const authService = {
       return response.data.data.message;
     } catch (error) {
       throw new Error(getPublicErrorMessage(error, 'Nao foi possivel redefinir a senha.'));
+    }
+  },
+
+  async changePassword(data: ChangePasswordInput): Promise<string> {
+    try {
+      const response = await api.post<ApiResponse<MessageResponse>>('/api/auth/change-password', data);
+
+      if (!response.data.success || !response.data.data) {
+        throw new Error(
+          getPublicApiResponseMessage(response.data, 'Nao foi possivel alterar a senha.')
+        );
+      }
+
+      return response.data.data.message;
+    } catch (error) {
+      throw new Error(getPublicErrorMessage(error, 'Nao foi possivel alterar a senha.'));
     }
   },
 };

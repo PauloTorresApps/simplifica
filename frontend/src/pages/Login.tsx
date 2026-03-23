@@ -25,8 +25,13 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      await login(formData);
+      const user = await login(formData);
       toast.success('Login realizado com sucesso!');
+      if (user.mustChangePassword) {
+        navigate('/force-change-password');
+        return;
+      }
+
       navigate('/publications');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao fazer login';

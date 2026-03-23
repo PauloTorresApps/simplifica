@@ -6,10 +6,12 @@ interface AuthContextData {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  mustChangePassword: boolean;
   hasRole: (role: string) => boolean;
-  login: (data: LoginInput) => Promise<void>;
+  login: (data: LoginInput) => Promise<User>;
   register: (data: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string>;
   requestPasswordReset: (email: string) => Promise<string>;
   resetPassword: (token: string, password: string) => Promise<string>;
 }
@@ -42,6 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function login(data: LoginInput) {
     const response = await authService.login(data);
     setUser(response.user);
+    return response.user;
   }
 
   async function register(data: RegisterInput) {
@@ -66,6 +69,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return authService.resetPassword({ token, password });
   }
 
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const message = await authService.changePassword({ currentPassword, newPassword });
+    await loadUser();
+    return message;
+  }
+
   function hasRole(role: string) {
     return user?.roles?.includes(role) ?? false;
   }
@@ -76,10 +85,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         user,
         isAuthenticated: !!user,
         isLoading,
+        mustChangePassword: user?.mustChangePassword ?? false,
         hasRole,
         login,
         register,
         logout,
+        changePassword,
         requestPasswordReset,
         resetPassword,
       }}

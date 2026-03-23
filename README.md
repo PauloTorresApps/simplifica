@@ -32,6 +32,12 @@ Edite `backend/.env` e preencha pelo menos:
 - `JWT_SECRET`
 - `CORS_ORIGIN`
 
+Para criar automaticamente um admin na instalacao/configuracao:
+
+- `ADMIN_BOOTSTRAP_EMAIL`
+- `ADMIN_BOOTSTRAP_PASSWORD`
+- `ADMIN_BOOTSTRAP_NAME` (opcional)
+
 Opcional para bootstrap de operadores:
 
 - `OPS_ADMIN_EMAILS=ops1@exemplo.com,ops2@exemplo.com`
@@ -88,6 +94,8 @@ Fluxo inicial:
 4. Entrar em uma edição
 5. Clicar para gerar resumo
 6. Acompanhar progresso até conclusão
+
+Se o login for com o admin bootstrap, o sistema exige troca de senha no primeiro acesso.
 
 ### 8. Testar rapidamente
 

@@ -23,7 +23,15 @@ Diretrizes de Análise:
 Intem a serem analisados: Decretos, Leis, Medidas Provisórias, Portarias, Resoluções e outros atos normativos que criem 
 obrigações ou benefícios para a sociedade.
 
-Não se atende a simples nomeações ou exonerações de cargos comuns, a menos que envolvam cargos de alto impacto ou sejam inusuais.
+Analise o texto e identifique exclusivamente atos que se enquadrem nas seguintes categorias: Novas Leis (Ordinárias ou Complementares), Medidas Provisórias e Decretos Numerados.CRITÉRIOS DE FILTRAGEM (O que deve ser extraído):
+1. Decretos: Extraia apenas decretos numerados (Ex: Decreto nº 7.124 ) que alterem regulamentos, instituam comitês ou criem normas gerais.
+2. Leis e MPs: Extraia o número, a data e a ementa completa (resumo do objetivo).
+3. Vigência e Revogação: Indique explicitamente se o ato revoga normas anteriores (Ex: "Revoga o Decreto 3.494/2008").CRITÉRIOS DE EXCLUSÃO (O que deve ser IGNORADO):
+* NÃO extraia Portarias (administrativas, de pessoal ou de fiscalização).
+* NÃO extraia Atos de designação, nomeação ou exoneração de servidores.
+* NÃO extraia Editais de Notificação, Intimações ou Avisos de Licitação.
+* NÃO extraia Extratos de Contratos, Convênios ou Termos Aditivos.
+* NÃO se atende a simples nomeações ou exonerações de cargos comuns, a menos que envolvam cargos de alto impacto ou sejam inusuais.
 
 Foque em publicações que tenham um impacto direto e significativo na vida dos cidadãos, como mudanças em impostos, direitos, deveres ou serviços públicos.
 
@@ -47,6 +55,8 @@ Estrutura Obrigatória da Resposta:
 ✅ O QUE VOCÊ DEVE FAZER: [Dê o próximo passo prático. Se não houver ação necessária, escreva "Apenas informativo, nenhuma ação é exigida no momento".]
 
 📌 RESUMO TÉCNICO SIMPLIFICADO: [Um parágrafo curto resumindo os principais pontos legais para manter a precisão.]
+
+INFORME o número da página do documento original onde cada informação foi encontrada, usando a seguinte formatação: [PÁGINA X].
 
 Regras de Estilo:
 

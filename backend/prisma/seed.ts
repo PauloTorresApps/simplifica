@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../src/shared/utils/hash';
 
 const prisma = new PrismaClient();
 
@@ -31,6 +32,27 @@ function parseEmails(raw: string | undefined): string[] {
     .split(',')
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function parseBootstrapAdminConfig() {
+  const email = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase();
+  const password = process.env.ADMIN_BOOTSTRAP_PASSWORD?.trim();
+  const name = process.env.ADMIN_BOOTSTRAP_NAME?.trim() || 'Administrador';
+
+  const hasEmail = Boolean(email);
+  const hasPassword = Boolean(password);
+
+  if (hasEmail !== hasPassword) {
+    throw new Error(
+      'ADMIN_BOOTSTRAP_EMAIL e ADMIN_BOOTSTRAP_PASSWORD devem ser definidos juntos.'
+    );
+  }
+
+  return {
+    email,
+    password,
+    name,
+  };
 }
 
 async function main() {
@@ -164,6 +186,56 @@ async function main() {
         },
       });
     }
+  }
+
+  const adminRole = roleByName.get('ADMIN');
+  const bootstrapAdmin = parseBootstrapAdminConfig();
+
+  if (adminRole && bootstrapAdmin.email && bootstrapAdmin.password) {
+    const existingAdminUser = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: bootstrapAdmin.email,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const adminUserId = existingAdminUser
+      ? existingAdminUser.id
+      : (
+          await prisma.user.create({
+            data: {
+              email: bootstrapAdmin.email,
+              name: bootstrapAdmin.name,
+              password: await hashPassword(bootstrapAdmin.password),
+              mustChangePassword: true,
+            },
+            select: {
+              id: true,
+            },
+          })
+        ).id;
+
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: {
+          userId: adminUserId,
+          roleId: adminRole.id,
+        },
+      },
+      update: {
+        assignedBy: 'seed',
+      },
+      create: {
+        userId: adminUserId,
+        roleId: adminRole.id,
+        assignedBy: 'seed',
+      },
+    });
   }
 }
 

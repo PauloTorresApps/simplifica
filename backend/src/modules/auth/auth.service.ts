@@ -16,6 +16,7 @@ import {
   LoginInput,
   ForgotPasswordInput,
   ResetPasswordInput,
+  ChangePasswordInput,
 } from './auth.schema';
 import { JwtPayload } from '../../shared/types';
 import { env } from '../../config/env';
@@ -59,6 +60,7 @@ export class AuthService {
         email: data.email,
         password: hashedPassword,
         name: data.name,
+        mustChangePassword: false,
       },
       select: {
         id: true,
@@ -84,7 +86,14 @@ export class AuthService {
       { expiresIn: env.JWT_EXPIRES_IN }
     );
 
-    return { user: { ...user, roles }, token };
+    return {
+      user: {
+        ...user,
+        roles,
+        mustChangePassword: false,
+      },
+      token,
+    };
   }
 
   async login(data: LoginInput) {
@@ -103,7 +112,12 @@ export class AuthService {
 
     // Generate token
     const token = this.app.jwt.sign(
-      { sub: user.id, email: user.email, name: user.name } as JwtPayload,
+      {
+        sub: user.id,
+        email: user.email,
+        name: user.name,
+        mustChangePassword: Boolean(user.mustChangePassword),
+      } as JwtPayload,
       { expiresIn: env.JWT_EXPIRES_IN }
     );
 
@@ -115,6 +129,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         roles,
+        mustChangePassword: Boolean(user.mustChangePassword),
         createdAt: user.createdAt,
       },
       token,
@@ -128,6 +143,7 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -142,6 +158,40 @@ export class AuthService {
     return {
       ...user,
       roles,
+    };
+  }
+
+  async changePassword(userId: string, data: ChangePasswordInput) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        password: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundError('Usuário');
+    }
+
+    const isCurrentPasswordValid = await comparePassword(data.currentPassword, user.password);
+
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedError('Senha atual inválida');
+    }
+
+    const hashedPassword = await hashPassword(data.newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: false,
+      },
+    });
+
+    return {
+      message: 'Senha alterada com sucesso',
     };
   }
 

@@ -128,6 +128,33 @@ export async function authRoutes(app: FastifyInstance) {
     authController.resetPassword.bind(authController)
   );
 
+  app.post(
+    '/change-password',
+    {
+      onRequest: [app.authenticate],
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '15 minutes',
+        },
+      },
+      schema: {
+        description: 'Alterar senha do usuário autenticado',
+        tags: ['Auth'],
+        security: [{ cookieAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['currentPassword', 'newPassword'],
+          properties: {
+            currentPassword: { type: 'string' },
+            newPassword: { type: 'string', minLength: 8 },
+          },
+        },
+      },
+    },
+    authController.changePassword.bind(authController)
+  );
+
   app.get(
     '/me',
     {

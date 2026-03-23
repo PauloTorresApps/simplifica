@@ -5,6 +5,7 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 } from './auth.schema';
 import { ApiResponse } from '../../shared/types';
 import { env } from '../../config/env';
@@ -133,6 +134,21 @@ export class AuthController {
   async resetPassword(request: FastifyRequest, reply: FastifyReply) {
     const data = resetPasswordSchema.parse(request.body);
     const result = await this.authService.resetPassword(data);
+
+    const response: ApiResponse<{ message: string }> = {
+      success: true,
+      data: {
+        message: result.message,
+      },
+    };
+
+    return reply.status(200).send(response);
+  }
+
+  async changePassword(request: FastifyRequest, reply: FastifyReply) {
+    const userId = (request.user as { sub: string }).sub;
+    const data = changePasswordSchema.parse(request.body);
+    const result = await this.authService.changePassword(userId, data);
 
     const response: ApiResponse<{ message: string }> = {
       success: true,

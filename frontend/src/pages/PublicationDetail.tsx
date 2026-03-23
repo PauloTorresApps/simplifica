@@ -11,12 +11,41 @@ import { formatSummaryHtml } from '../utils/summary-html';
 import { getSafeExternalUrl } from '../utils/external-url';
 import { formatPublicationDate } from '../utils/publication-date';
 
+function getSummaryJobStorageKey(publicationId: string) {
+  return `summary-job:${publicationId}`;
+}
+
 export function PublicationDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: publication, isLoading, isError, error } = usePublication(id!);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const generateSummaryJob = useGenerateSummaryJob();
   const summaryJobStatus = useSummaryJobStatus(activeJobId, publication?.id ?? null);
+
+  useEffect(() => {
+    if (!publication?.id) {
+      return;
+    }
+
+    const storedJobId = localStorage.getItem(getSummaryJobStorageKey(publication.id));
+
+    if (storedJobId) {
+      setActiveJobId(storedJobId);
+    }
+  }, [publication?.id]);
+
+  useEffect(() => {
+    if (!publication?.id) {
+      return;
+    }
+
+    if (activeJobId) {
+      localStorage.setItem(getSummaryJobStorageKey(publication.id), activeJobId);
+      return;
+    }
+
+    localStorage.removeItem(getSummaryJobStorageKey(publication.id));
+  }, [activeJobId, publication?.id]);
 
   useEffect(() => {
     const status = summaryJobStatus.data?.status;

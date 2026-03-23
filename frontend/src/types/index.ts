@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   roles?: string[];
+  mustChangePassword?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -98,6 +99,11 @@ export interface ForgotPasswordInput {
 export interface ResetPasswordInput {
   token: string;
   password: string;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export interface MessageResponse {
