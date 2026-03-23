@@ -51,10 +51,37 @@ model Publication {
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   summaries Summary[]
+  summaryJobs SummaryJob[]
 
   @@map("publications")
   @@index([date])
   @@index([doeId])
+}
+
+enum SummaryJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model SummaryJob {
+  id             String           @id @default(uuid())
+  publicationId  String           @map("publication_id")
+  status         SummaryJobStatus @default(PENDING)
+  totalSteps     Int              @default(0) @map("total_steps")
+  completedSteps Int              @default(0) @map("completed_steps")
+  currentStep    String?          @map("current_step")
+  errorMessage   String?          @map("error_message")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  publication Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@map("summary_jobs")
+  @@index([publicationId])
+  @@index([status])
+  @@index([publicationId, status])
 }
 
 model Summary {

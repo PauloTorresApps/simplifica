@@ -66,4 +66,9 @@ Formato de saída obrigatório:
   4) <h4>🗓️ DATAS E PRAZOS</h4> + <ul><li>...</li></ul>
   5) <h4>✅ O QUE VOCÊ DEVE FAZER</h4> + <p>...</p>
   6) <h4>📌 RESUMO TÉCNICO SIMPLIFICADO</h4> + <p>...</p>
-- Não inclua texto fora do HTML.`;
+- Não inclua texto fora do HTML.
+
+ATENÇÃO: O prompt acima é uma diretriz para o modelo de linguagem gerar resumos claros e concisos de atos oficiais, 
+focando no impacto prático para os cidadãos. Ele enfatiza a importância de usar uma linguagem acessível e estruturada,
+garantindo que as informações essenciais sejam destacadas de forma eficaz.
+O tamanho da resposta deve ser de no máximo 300 palavras, priorizando a clareza e a objetividade.`;

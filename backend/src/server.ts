@@ -3,11 +3,23 @@ import { buildApp } from './app';
 import { env } from './config/env';
 import Database from './config/database';
 import { FetchPublicationsJob } from './jobs/fetch-publications.job';
+import { SummaryJobRepository } from './modules/summaries/summary-job.repository';
 
 async function start() {
   try {
     // Connect to database
     await Database.connect();
+
+    // Mark stale processing jobs as failed so users can retry after restarts
+    const staleBefore = new Date(
+      Date.now() - env.SUMMARY_JOB_STALE_MINUTES * 60 * 1000
+    );
+    const staleJobsCount = await new SummaryJobRepository().markStaleProcessingJobsAsFailed(
+      staleBefore
+    );
+    if (staleJobsCount > 0) {
+      console.log(`⚠️ ${staleJobsCount} job(s) de resumo antigo(s) marcado(s) como FAILED.`);
+    }
 
     // Build Fastify app
     const app = await buildApp();

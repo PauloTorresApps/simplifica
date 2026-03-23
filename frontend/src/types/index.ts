@@ -38,6 +38,21 @@ export interface Summary {
   createdAt: string;
 }
 
+export type SummaryJobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface SummaryJob {
+  id: string;
+  publicationId: string;
+  status: SummaryJobStatus;
+  totalSteps: number;
+  completedSteps: number;
+  currentStep: string | null;
+  errorMessage: string | null;
+  progress: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

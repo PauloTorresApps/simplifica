@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, FileText, ExternalLink, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { usePublication } from '../hooks/usePublications';
-import { useGenerateSummary } from '../hooks/useSummaries';
+import { useGenerateSummaryJob, useSummaryJobStatus } from '../hooks/useSummaryJob';
 import { Loading } from '../components/common/Loading';
+import { ProgressBar } from '../components/common/ProgressBar';
 import { formatSummaryHtml } from '../utils/summary-html';
 import { getSafeExternalUrl } from '../utils/external-url';
 import { formatPublicationDate } from '../utils/publication-date';
@@ -12,7 +14,16 @@ import { formatPublicationDate } from '../utils/publication-date';
 export function PublicationDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: publication, isLoading, isError, error } = usePublication(id!);
-  const generateSummary = useGenerateSummary();
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const generateSummaryJob = useGenerateSummaryJob();
+  const summaryJobStatus = useSummaryJobStatus(activeJobId, publication?.id ?? null);
+
+  useEffect(() => {
+    const status = summaryJobStatus.data?.status;
+    if (status === 'COMPLETED' || status === 'FAILED') {
+      setActiveJobId(null);
+    }
+  }, [summaryJobStatus.data?.status]);
 
   if (isLoading) {
     return <Loading message="Carregando publicação..." />;
@@ -40,9 +51,16 @@ export function PublicationDetail() {
   const lawCount = summaries.filter((item) => item.topicType === 'LEI').length;
   const mpCount = summaries.filter((item) => item.topicType === 'MEDIDA_PROVISORIA').length;
   const safeDownloadUrl = getSafeExternalUrl(publication.downloadUrl);
+  const isJobRunning =
+    summaryJobStatus.data?.status === 'PENDING' || summaryJobStatus.data?.status === 'PROCESSING';
+  const isGenerateDisabled = generateSummaryJob.isPending || isJobRunning;
 
   const handleGenerateSummary = () => {
-    generateSummary.mutate(publication.id);
+    generateSummaryJob.mutate(publication.id, {
+      onSuccess: (job) => {
+        setActiveJobId(job.id);
+      },
+    });
   };
 
   return (
@@ -116,10 +134,10 @@ export function PublicationDetail() {
           {hasSummary && (
             <button
               onClick={handleGenerateSummary}
-              disabled={generateSummary.isPending}
+              disabled={isGenerateDisabled}
               className="btn-secondary flex items-center gap-2 text-sm"
             >
-              {generateSummary.isPending ? (
+              {isGenerateDisabled ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <RefreshCw className="w-4 h-4" />
@@ -128,6 +146,16 @@ export function PublicationDetail() {
             </button>
           )}
         </div>
+
+        {(activeJobId || isJobRunning) && summaryJobStatus.data && (
+          <div className="mb-4">
+            <ProgressBar
+              progress={summaryJobStatus.data.progress}
+              currentStep={summaryJobStatus.data.currentStep}
+              status={summaryJobStatus.data.status}
+            />
+          </div>
+        )}
 
           {hasSummary ? (
             <div className="space-y-4">
@@ -177,13 +205,13 @@ export function PublicationDetail() {
             </p>
             <button
               onClick={handleGenerateSummary}
-              disabled={generateSummary.isPending}
+              disabled={isGenerateDisabled}
               className="btn-primary flex items-center gap-2 mx-auto"
             >
-              {generateSummary.isPending ? (
+              {isGenerateDisabled ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Gerando resumo...
+                  Analise em andamento...
                 </>
               ) : (
                 <>

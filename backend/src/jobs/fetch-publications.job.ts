@@ -1,10 +1,12 @@
 import axios from 'axios';
 import cron from 'node-cron';
 import { env } from '../config/env';
-import { OpenRouterService } from '../modules/summaries/openrouter.service';
+import { AppError } from '../shared/errors/app-error';
 import { SummariesRepository } from '../modules/summaries/summaries.repository';
 import { PublicationsRepository } from '../modules/publications/publications.repository';
-import { parseLegalActs } from '../shared/utils/legal-acts-parser';
+import { SummaryJobRepository } from '../modules/summaries/summary-job.repository';
+import { SummariesService } from '../modules/summaries/summaries.service';
+import { OpenRouterService } from '../modules/summaries/openrouter.service';
 import { extractExecutiveActsContent } from '../shared/utils/doe-content-extractor';
 import { validateExternalUrl } from '../shared/utils/external-url-guard';
 import { parseIsoDateOnlyToUtcDate } from '../shared/utils/date-only';
@@ -29,16 +31,19 @@ const ALLOWED_PDF_CONTENT_TYPES = [
 ];
 
 export class FetchPublicationsJob {
-  private openRouterService: OpenRouterService;
-  private summariesRepository: SummariesRepository;
   private publicationsRepository: PublicationsRepository;
+  private summariesService: SummariesService;
   private readonly allowedHosts: string[];
   private isRunning: boolean = false;
 
   constructor() {
-    this.openRouterService = new OpenRouterService();
-    this.summariesRepository = new SummariesRepository();
     this.publicationsRepository = new PublicationsRepository();
+    this.summariesService = new SummariesService(
+      new SummariesRepository(),
+      this.publicationsRepository,
+      new OpenRouterService(),
+      new SummaryJobRepository()
+    );
     this.allowedHosts = env.DOE_ALLOWED_HOSTS.split(',')
       .map((host) => host.trim().toLowerCase())
       .filter(Boolean);
@@ -120,55 +125,31 @@ export class FetchPublicationsJob {
                 });
               }
 
-                const legalActs = parseLegalActs(pdfContent);
+              const job = await this.summariesService.startGeneration({
+                publicationId: publication.id,
+              });
 
-                if (legalActs.length === 0) {
-                  console.log(
-                    `ℹ️ Nenhum decreto/lei/medida provisoria identificado na edição ${doePub.edicao}`
-                  );
-                }
+              console.log(
+                `🧠 Analise iniciada para edição ${doePub.edicao}. Job ${job.id} (${job.totalSteps} tópico(s)).`
+              );
 
-                let generatedCount = 0;
-
-                for (const legalAct of legalActs) {
-                  try {
-                    const llmResponse = await this.openRouterService.generateSummary(legalAct.content, {
-                      legalType: legalAct.type,
-                      legalTitle: legalAct.title,
-                    });
-
-                    await this.summariesRepository.create({
-                      content: llmResponse.content,
-                      model: llmResponse.model,
-                      tokensUsed: llmResponse.tokensUsed,
-                      topicType: legalAct.type,
-                      topicTitle: legalAct.title,
-                      topicOrder: legalAct.order,
-                      publication: {
-                        connect: { id: publication.id },
-                      },
-                    });
-
-                    generatedCount++;
-                  } catch (actError) {
-                    console.error(
-                      `⚠️ Erro ao resumir ${legalAct.type} da edição ${doePub.edicao}:`,
-                      actError
-                    );
-                  }
-                }
-
-                console.log(
-                  `✅ ${generatedCount} resumo(s) de decretos/leis/medidas provisórias gerados para edição ${doePub.edicao}`
-                );
-
-                if (isRetry) {
-                  retriedCount++;
-                }
+              if (isRetry) {
+                retriedCount++;
+              }
             } else {
               console.log(`ℹ️ Edição ${doePub.edicao} sem conteúdo PDF disponível para análise`);
             }
           } catch (pdfError) {
+            if (
+              pdfError instanceof AppError &&
+              pdfError.code === 'NO_LEGAL_ACTS_FOUND'
+            ) {
+              console.log(
+                `ℹ️ Nenhum decreto/lei/medida provisoria identificado na edição ${doePub.edicao}`
+              );
+              continue;
+            }
+
             console.error(`⚠️ Erro ao processar PDF da edição ${doePub.edicao}:`, pdfError);
           }
         } catch (error) {

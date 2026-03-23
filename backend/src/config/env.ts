@@ -47,6 +47,7 @@ const envSchema = z.object({
   OPENROUTER_RATE_LIMIT_DELAY_MS: z.coerce.number().int().min(1000).max(300000).default(10000),
   OPENROUTER_MAX_TOKENS: z.coerce.number().int().min(256).max(12000).default(5000),
   SUMMARY_MAX_CONTENT_CHARS: z.coerce.number().int().min(1000).max(500000).default(120000),
+  SUMMARY_JOB_STALE_MINUTES: z.coerce.number().int().min(5).max(1440).default(30),
 
   // App
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

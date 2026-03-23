@@ -1,6 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { SummariesService } from './summaries.service';
-import { getSummarySchema, generateSummarySchema } from './summaries.schema';
+import {
+  getSummarySchema,
+  generateSummarySchema,
+  getSummaryJobStatusSchema,
+  retryFailedSummaryJobsQuerySchema,
+} from './summaries.schema';
 import { ApiResponse } from '../../shared/types';
 
 export class SummariesController {
@@ -20,13 +25,37 @@ export class SummariesController {
 
   async generate(request: FastifyRequest, reply: FastifyReply) {
     const params = generateSummarySchema.parse(request.params);
-    const summaries = await this.service.generate(params);
+    const job = await this.service.startGeneration(params);
 
-    const response: ApiResponse<typeof summaries> = {
+    const response: ApiResponse<typeof job> = {
       success: true,
-      data: summaries,
+      data: job,
     };
 
-    return reply.status(201).send(response);
+    return reply.status(202).send(response);
+  }
+
+  async getJobStatus(request: FastifyRequest, reply: FastifyReply) {
+    const params = getSummaryJobStatusSchema.parse(request.params);
+    const job = await this.service.getJobStatus(params);
+
+    const response: ApiResponse<typeof job> = {
+      success: true,
+      data: job,
+    };
+
+    return reply.status(200).send(response);
+  }
+
+  async retryFailedJobs(request: FastifyRequest, reply: FastifyReply) {
+    const query = retryFailedSummaryJobsQuerySchema.parse(request.query);
+    const result = await this.service.retryFailedJobs(query);
+
+    const response: ApiResponse<typeof result> = {
+      success: true,
+      data: result,
+    };
+
+    return reply.status(200).send(response);
   }
 }

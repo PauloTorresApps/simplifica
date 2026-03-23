@@ -21,7 +21,7 @@ vi.mock('../../src/modules/summaries/summaries.service', () => ({
         id: 'job-id',
         publicationId: '11111111-1111-1111-1111-111111111111',
         status: 'PENDING',
-        totalSteps: 3,
+        totalSteps: 2,
         completedSteps: 0,
         currentStep: null,
         errorMessage: null,
@@ -36,13 +36,50 @@ vi.mock('../../src/modules/summaries/summaries.service', () => ({
         id: 'job-id',
         publicationId: '11111111-1111-1111-1111-111111111111',
         status: 'PROCESSING',
-        totalSteps: 3,
+        totalSteps: 2,
         completedSteps: 1,
-        currentStep: 'DECRETO - TESTE',
+        currentStep: 'LEI - TESTE',
         errorMessage: null,
-        progress: 33,
+        progress: 50,
         createdAt: new Date(),
         updatedAt: new Date(),
+      };
+    }
+
+    async retryFailedJobs() {
+      return {
+        requestedLimit: 3,
+        failedOlderThanMinutes: 15,
+        foundCandidates: 2,
+        startedCount: 2,
+        skippedNoLegalActs: 0,
+        skippedOtherErrors: 0,
+        jobs: [
+          {
+            id: 'job-a',
+            publicationId: '11111111-1111-1111-1111-111111111111',
+            status: 'PENDING',
+            totalSteps: 4,
+            completedSteps: 0,
+            currentStep: null,
+            errorMessage: null,
+            progress: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: 'job-b',
+            publicationId: '22222222-2222-2222-2222-222222222222',
+            status: 'PENDING',
+            totalSteps: 1,
+            completedSteps: 0,
+            currentStep: null,
+            errorMessage: null,
+            progress: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
       };
     }
   },
@@ -97,8 +134,8 @@ afterEach(async () => {
   await app.close();
 });
 
-describe('Summaries Rate Limit', () => {
-  it('should rate limit summary generation endpoint after max requests', async () => {
+describe('Summaries Retry Failed Jobs', () => {
+  it('should reprocess failed jobs in batch when authenticated', async () => {
     const { hashPassword } = await import('../../src/shared/utils/hash');
     const hashedPassword = await hashPassword('Password123');
 
@@ -124,30 +161,30 @@ describe('Summaries Rate Limit', () => {
     });
 
     const authCookie = getFirstCookie(loginResponse.headers['set-cookie']);
-    const publicationId = '11111111-1111-1111-1111-111111111111';
 
-    for (let i = 0; i < 10; i++) {
-      const response = await app.inject({
-        method: 'POST',
-        url: `/api/summaries/generate/${publicationId}`,
-        headers: {
-          origin: 'http://localhost:3000',
-          cookie: authCookie,
-        },
-      });
-
-      expect(response.statusCode).toBe(202);
-    }
-
-    const blockedResponse = await app.inject({
+    const response = await app.inject({
       method: 'POST',
-      url: `/api/summaries/generate/${publicationId}`,
+      url: '/api/summaries/jobs/retry-failed?limit=3&failedOlderThanMinutes=15',
       headers: {
         origin: 'http://localhost:3000',
         cookie: authCookie,
       },
     });
 
-    expect(blockedResponse.statusCode).toBe(429);
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
+    expect(response.json().data.requestedLimit).toBe(3);
+    expect(response.json().data.failedOlderThanMinutes).toBe(15);
+    expect(response.json().data.startedCount).toBe(2);
+  });
+
+  it('should require authentication for retry endpoint', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/summaries/jobs/retry-failed',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().success).toBe(false);
   });
 });
